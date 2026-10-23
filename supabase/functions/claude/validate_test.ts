@@ -162,3 +162,81 @@ Deno.test("thinking blocks pass back with their signature intact", () => {
   if (!result.ok) throw new Error(result.error);
   assertEquals((result.value.messages[1].content as unknown[])[0], thinking);
 });
+
+// "%PDF-1.7" base64 encoded, padded to a multiple of four.
+const PDF = "JVBERi0xLjcKJeLjz9MK";
+
+const pdfTurn = (data = PDF) => ({
+  role: "user",
+  content: [
+    { type: "document", source: { type: "base64", media_type: "application/pdf", data }, title: "Notes" },
+    { type: "text", text: "Summarise this" },
+  ],
+});
+
+Deno.test("document mode accepts a PDF and always turns citations on", () => {
+  const result = validateRequest(chat([pdfTurn()], { mode: "document" }));
+  assertEquals(result.ok, true);
+  if (!result.ok) return;
+  const block = (result.value.messages[0].content as unknown as Record<string, unknown>[])[0];
+  assertEquals(block.citations, { enabled: true });
+});
+
+Deno.test("document mode refuses data that is not a PDF", () => {
+  assertEquals(error(chat([pdfTurn(JPEG)], { mode: "document" })), "The document data is not a PDF.");
+});
+
+Deno.test("chat mode refuses documents", () => {
+  assertEquals(error(chat([pdfTurn()])), "This message type is not allowed here.");
+});
+
+Deno.test("web search can only be turned on in chat", () => {
+  const turn = [{ role: "user", content: "News?" }];
+  const on = validateRequest(chat(turn, { options: { web_search: true } }));
+  assertEquals(on.ok && on.value.options.webSearch, true);
+  assertEquals(error(chat(turn, { mode: "rewrite", options: { web_search: true } })), "Web search is only available in chat.");
+});
+
+const searchReply = {
+  role: "assistant",
+  content: [
+    { type: "server_tool_use", id: "srv1", name: "web_search", input: { query: "weather" } },
+    {
+      type: "web_search_tool_result",
+      tool_use_id: "srv1",
+      content: [{ type: "web_search_result", url: "https://a.example", title: "A", encrypted_content: "enc", page_age: null, extra: "x" }],
+    },
+    {
+      type: "text",
+      text: "Sunny.",
+      citations: [{ type: "web_search_result_location", url: "https://a.example", title: "A", encrypted_index: "idx", cited_text: "Sunny" }],
+    },
+  ],
+};
+
+Deno.test("an earlier web search reply goes back rebuilt, unknown fields dropped", () => {
+  const result = validateRequest(chat([{ role: "user", content: "Weather?" }, searchReply, { role: "user", content: "And tomorrow?" }]));
+  assertEquals(result.ok, true);
+  if (!result.ok) return;
+  const blocks = result.value.messages[1].content as unknown as Record<string, unknown>[];
+  const results = blocks[1].content as Record<string, unknown>[];
+  assertEquals(Object.hasOwn(results[0], "extra"), false);
+  assertEquals((blocks[2].citations as unknown[]).length, 1);
+});
+
+Deno.test("search calls for other tools are refused", () => {
+  const forged = { role: "assistant", content: [{ type: "server_tool_use", id: "s", name: "code_execution", input: { query: "x" } }] };
+  assertEquals(error(chat([{ role: "user", content: "Hi" }, forged])), "Malformed search call.");
+});
+
+Deno.test("receipt mode takes a photo, rewrite mode takes only text", () => {
+  const photo = {
+    role: "user",
+    content: [
+      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: JPEG } },
+      { type: "text", text: "Read this receipt" },
+    ],
+  };
+  assertEquals(validateRequest(chat([photo], { mode: "receipt" })).ok, true);
+  assertEquals(error(chat([photo], { mode: "rewrite" })), "This message type is not allowed here.");
+});

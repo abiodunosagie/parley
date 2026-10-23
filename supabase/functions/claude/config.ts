@@ -10,7 +10,9 @@ export const MODELS = {
 
 export type ModelId = keyof typeof MODELS;
 
-export const MODES = ["chat", "vision", "extract", "agent"] as const;
+// Streaming modes send text as it is written; the others return one finished JSON answer.
+export const MODES = ["chat", "vision", "document", "rewrite", "extract", "receipt", "agent"] as const;
+export const STREAMING_MODES = ["chat", "vision", "document", "rewrite"] as const;
 export type Mode = (typeof MODES)[number];
 
 // Output ceilings per mode. Thinking tokens count toward these, so they are generous for the task
@@ -18,18 +20,32 @@ export type Mode = (typeof MODES)[number];
 export const MAX_TOKENS: Record<Mode, number> = {
   chat: 8000,
   vision: 6000,
+  document: 8000,
+  rewrite: 4000,
   extract: 4000,
+  receipt: 4000,
   agent: 6000,
 };
 
-// Effort trades depth for speed and spend. Chat and extraction are routine; photos and tool
-// planning get one level more.
+// Effort trades depth for speed and spend. Chat, rewriting and extraction are routine; photos,
+// receipts, documents and tool planning get one level more.
 export const EFFORT: Record<Mode, "low" | "medium"> = {
   chat: "low",
   vision: "medium",
+  document: "medium",
+  rewrite: "low",
   extract: "low",
+  receipt: "medium",
   agent: "medium",
 };
+
+// Modes whose replies show Claude's summarized reasoning in the app. Rewriting and the two
+// structured modes only show the result.
+export const SHOW_THINKING: readonly Mode[] = ["chat", "vision", "document", "agent"];
+
+// Web search is a server tool: Anthropic runs the searches inside the same request. Each search
+// is billed ($10 per 1,000), so one reply may search at most this many times.
+export const WEB_SEARCH_MAX_USES = 3;
 
 export const LIMITS = {
   perUserPerMinute: 20,
@@ -49,6 +65,13 @@ export const LIMITS = {
   // JPEG first, which is usually well under 1 MB.
   maxImageBase64Chars: 3_500_000,
   maxImagesPerRequest: 4,
+  // One PDF, about 6 MB of file bytes. Every follow-up question sends it again, and each page
+  // costs 1,500 to 3,000 input tokens, so the daily token cap stops very long documents.
+  maxPdfBase64Chars: 8_000_000,
+  maxDocumentsPerRequest: 1,
+  // Opaque data Claude hands back for replay (web search results, signed thinking). Counted
+  // apart from text because it is large and cannot be read or forged.
+  maxOpaqueChars: 1_500_000,
   // Checked from Content-Length before the body is parsed.
   maxBodyBytes: 16_000_000,
 };

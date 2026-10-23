@@ -32,6 +32,45 @@ export const JOB_POST_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+export const RECEIPT_CATEGORIES = [
+  "food",
+  "drinks",
+  "groceries",
+  "household",
+  "transport",
+  "health",
+  "other",
+] as const;
+
+export const RECEIPT_SCHEMA = {
+  type: "object",
+  properties: {
+    is_receipt: { type: "boolean", description: "False when the photo is not a receipt" },
+    merchant: { type: "string", description: "Shop or restaurant name as printed, or empty" },
+    date: { type: "string", description: "Date as YYYY-MM-DD, or empty when not printed" },
+    currency: { type: "string", description: "Three-letter currency code, for example EUR or NGN" },
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          quantity: { type: "number" },
+          price: { type: "number", description: "Line total for this item" },
+          category: { type: "string", enum: [...RECEIPT_CATEGORIES] },
+        },
+        required: ["name", "quantity", "price", "category"],
+        additionalProperties: false,
+      },
+    },
+    tax: { type: "number", description: "Tax amount, or 0" },
+    tip: { type: "number", description: "Tip or service charge, or 0" },
+    total: { type: "number", description: "Grand total as printed" },
+  },
+  required: ["is_receipt", "merchant", "date", "currency", "items", "tax", "tip", "total"],
+  additionalProperties: false,
+} as const;
+
 export const AGENT_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: "list_tasks",

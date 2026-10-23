@@ -2,8 +2,9 @@
 // Order of checks: body size, signed-in Supabase user, valid body, rate limits, then the Claude
 // call. The Anthropic key exists only as a Supabase secret; the app never sees it.
 import { createClient } from "jsr:@supabase/supabase-js@2.118.0";
-import { agentTurn, extractJobPost, publicError, streamReply, type Usage } from "./claude.ts";
-import { LIMITS } from "./config.ts";
+import { agentTurn, publicError, streamReply, structured, type Usage } from "./claude.ts";
+import { LIMITS, STREAMING_MODES } from "./config.ts";
+import { JOB_POST_SCHEMA, RECEIPT_SCHEMA } from "./schemas.ts";
 import { type ClaudeRequest, validateRequest } from "./validate.ts";
 
 const admin = createClient(
@@ -51,9 +52,11 @@ Deno.serve(async (request) => {
     const abort = new AbortController();
     request.signal.addEventListener("abort", () => abort.abort());
 
-    if (req.mode === "chat" || req.mode === "vision") return streamResponse(req, abort, logId);
+    if ((STREAMING_MODES as readonly string[]).includes(req.mode)) return streamResponse(req, abort, logId);
     const result = req.mode === "extract"
-      ? await extractJobPost(req, abort.signal)
+      ? await structured(req, JOB_POST_SCHEMA, abort.signal)
+      : req.mode === "receipt"
+      ? await structured(req, RECEIPT_SCHEMA, abort.signal)
       : await agentTurn(req, abort.signal);
     await logUsage(logId, result.usage);
     return json(result);
