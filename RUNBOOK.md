@@ -93,7 +93,16 @@ abuse; the console limit is the last line of defence for the bill.
 
 | Tab | Claude feature | App code | Server code |
 | --- | --- | --- | --- |
-| Chat | Streaming, model switch, stop | `lib/features/chat/` | `streamReply` in `claude.ts` |
-| Look | Vision (base64 image blocks) | `lib/features/vision/` | same stream, `vision` mode |
+| Chat | Streaming, model switch, stop | `lib/features/conversation/` | `streamReply` in `claude.ts` |
+| Look | Vision (base64 image blocks) | `lib/features/conversation/` (`look_screen.dart`) | same stream, `vision` mode |
 | Extract | Structured output (JSON schema) | `lib/features/extract/` | `extractJobPost`, `JOB_POST_SCHEMA` |
-| Tasks | Tool use, agent loop on the phone | `lib/features/agent/` | `agentTurn`, `AGENT_TOOLS` |
+| Tasks | Tool use, agent loop on the phone | `lib/features/tasks/` | `agentTurn`, `AGENT_TOOLS` |
+
+Folder layout and the layering rules: `docs/CODE_TOUR.md`.
+
+## Keyboard in the iOS Simulator
+
+The Mac keyboard types straight into the simulator, so the on-screen keyboard stays hidden while
+Simulator > I/O > Keyboard > Connect Hardware Keyboard is ticked. Tap the message box first, then
+press Cmd+K to show it, or untick that option. On a real phone the keyboard opens on tap
+(`test/core/widgets/keyboard_dismiss_test.dart` proves the app side).
