@@ -7,11 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/entities/app_user.dart';
 
-final currentUserProvider = StreamProvider<AppUser?>((ref) {
+final currentUserProvider = StreamProvider<AppUser?>((ref) async* {
   final repository = ref.watch(authRepositoryProvider);
-  // Emit the user we already have straight away, so the app does not flash a loading screen.
-  return Stream.value(repository.currentUser).asyncExpand((first) async* {
-    yield first;
-    yield* repository.watchUser();
-  });
+  // The user we already have comes first, so the app never flashes a loading screen.
+  yield repository.currentUser;
+  // A token refresh that fails offline arrives as a stream error. It does not mean the user
+  // signed out, so it is skipped instead of clearing the signed-in user.
+  yield* repository.watchUser().handleError((Object _) {});
 });

@@ -7,10 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/widgets/composer.dart';
 import '../../../../core/widgets/intro_list.dart';
-import '../../../../core/widgets/model_picker_button.dart';
-import '../../../../core/widgets/notice_line.dart';
+import '../../../../core/widgets/notice.dart';
 import '../../../../core/widgets/screen_intro.dart';
-import '../../../auth/presentation/widgets/account_button.dart';
+import '../../../home/presentation/widgets/feature_app_bar.dart';
 import '../providers/agent_controller.dart';
 import '../widgets/agent_item_view.dart';
 import '../widgets/task_panel.dart';
@@ -31,16 +30,14 @@ class TasksScreen extends ConsumerWidget {
     final agent = ref.read(agentControllerProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tasks'),
+      appBar: FeatureAppBar(
+        title: 'Tasks',
         actions: [
-          const ModelPickerButton(),
           IconButton(
             tooltip: 'New conversation',
             onPressed: state.isEmpty ? null : agent.reset,
             icon: const Icon(Icons.edit_square),
           ),
-          const AccountButton(),
         ],
       ),
       body: Column(

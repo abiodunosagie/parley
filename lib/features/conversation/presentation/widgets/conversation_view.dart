@@ -5,8 +5,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/widgets/composer.dart';
-import '../../../../core/widgets/notice_line.dart';
-import '../providers/conversation_controller.dart';
+import '../../../../core/widgets/notice.dart';
 import '../providers/conversation_state.dart';
 import 'message_list.dart';
 
@@ -14,13 +13,15 @@ class ConversationView extends StatelessWidget {
   const ConversationView({
     super.key,
     required this.state,
-    required this.controller,
+    required this.onSend,
+    required this.onStop,
     required this.empty,
     this.hint = 'Message Parley',
   });
 
   final ConversationState state;
-  final ConversationController controller;
+  final ValueChanged<String> onSend;
+  final VoidCallback onStop;
 
   /// Shown instead of the message list before the first message.
   final Widget empty;
@@ -36,12 +37,7 @@ class ConversationView extends StatelessWidget {
               : MessageList(messages: state.messages, busy: state.busy),
         ),
         if (state.notice != null) Notice(state.notice!),
-        Composer(
-          busy: state.busy,
-          onSend: controller.send,
-          onStop: controller.stop,
-          hint: hint,
-        ),
+        Composer(busy: state.busy, onSend: onSend, onStop: onStop, hint: hint),
       ],
     );
   }

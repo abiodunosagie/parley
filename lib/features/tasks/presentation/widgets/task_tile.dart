@@ -46,7 +46,7 @@ class TaskTile extends StatelessWidget {
         subtitle: Text(
           [
             if (task.dueDate.isNotEmpty) task.dueDate,
-            '${task.priority} priority',
+            '${task.priority.name} priority',
             'id ${task.id}',
           ].join(' · '),
           style: TextStyle(color: colors.muted, fontSize: 12),

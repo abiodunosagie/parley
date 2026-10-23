@@ -1,6 +1,7 @@
 // FILE: app/session_reset.dart
 // When the signed-in account changes (sign out, another person signs in), every conversation from
-// the previous account is cleared, so nobody ever sees someone else's chats.
+// the previous account is cleared, so nobody ever sees someone else's chats, and any open sheet
+// or dialog is closed so it cannot sit on top of the sign-in screen.
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../features/auth/presentation/providers/current_user_provider.dart';
 import '../features/conversation/presentation/providers/conversation_controller.dart';
 import '../features/extract/presentation/providers/extract_controller.dart';
 import '../features/tasks/presentation/providers/agent_controller.dart';
+import 'router/app_router.dart';
 
 class SessionReset extends ConsumerWidget {
   const SessionReset({super.key, required this.child});
@@ -18,6 +20,13 @@ class SessionReset extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen(currentUserProvider, (previous, next) {
       if (previous?.value?.id == next.value?.id) return;
+      // Pageless routes (bottom sheets, dialogs) are not managed by the router, so close them here.
+      ref
+          .read(routerProvider)
+          .routerDelegate
+          .navigatorKey
+          .currentState
+          ?.popUntil((route) => route.settings is Page);
       ref
         ..invalidate(chatControllerProvider)
         ..invalidate(lookControllerProvider)

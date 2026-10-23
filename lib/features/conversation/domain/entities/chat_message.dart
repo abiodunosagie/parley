@@ -2,7 +2,7 @@
 // One turn in a Chat or Look conversation: who said it, the text, and an optional photo.
 // How it is sent to the server lives in data/mappers/chat_message_mapper.dart.
 
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 
 import 'attachment.dart';
 

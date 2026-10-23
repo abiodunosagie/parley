@@ -1,5 +1,6 @@
 // The clean-architecture rules, checked on every test run so a shortcut cannot slip in:
-//   - domain/ is plain Dart: no data/, presentation/, Flutter UI, Riverpod or Supabase.
+//   - domain/ is plain Dart: no Flutter at all, no Riverpod, Supabase, data/ or presentation/.
+//   - a feature reaches another feature only through the shared pieces listed in _sharedAcross.
 //   - core/ never imports a feature.
 //   - presentation/ reaches data/ only through *_repository_impl.dart (where the providers live).
 //   - no widget or screen talks to Supabase or HTTP directly.
@@ -27,6 +28,14 @@ List<String> _violations(
       if (bad(line)) '${f.path}: $line',
 ];
 
+/// The only files one feature may import from another: the signed-in user and the shared app
+/// bar (which carries the account button).
+const _sharedAcross = {
+  'auth/presentation/providers/current_user_provider.dart',
+  'auth/presentation/widgets/account_button.dart',
+  'home/presentation/widgets/feature_app_bar.dart',
+};
+
 void main() {
   final lib = _dart('lib');
 
@@ -41,6 +50,32 @@ void main() {
       ),
       isEmpty,
     );
+  });
+
+  test('features reach each other only through the shared pieces', () {
+    final features = lib.where((f) => f.path.startsWith('lib/features/'));
+    final wrong = <String>[];
+    for (final f in features) {
+      final own = f.path.split('/')[2];
+      for (final line in _imports(f)) {
+        final target = RegExp(r"import '([^']+)'").firstMatch(line)?.group(1);
+        if (target == null ||
+            target.startsWith('package:') ||
+            target.startsWith('dart:')) {
+          continue;
+        }
+        // Resolve the relative import to a path under lib/.
+        final resolved = Uri.file(f.path).resolve(target).path;
+        final at = resolved.indexOf('lib/features/');
+        if (at < 0) continue; // core/ or app/: fine.
+        final rest = resolved.substring(at + 'lib/features/'.length);
+        final feature = rest.split('/').first;
+        if (feature != own && !_sharedAcross.contains(rest)) {
+          wrong.add('${f.path}: $line');
+        }
+      }
+    }
+    expect(wrong, isEmpty);
   });
 
   test('core never imports a feature', () {

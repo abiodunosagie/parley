@@ -14,7 +14,7 @@ abstract interface class ToolActions {
   Future<Task> addTask({
     required String title,
     required String dueDate,
-    required String priority,
+    required TaskPriority priority,
   });
   Future<Task?> completeTask(String id);
   Future<bool> scheduleReminder({
@@ -40,6 +40,9 @@ class ToolOutcome {
 /// `AGENT_TOOLS` in the edge function; strict schemas guarantee the inputs match, but every
 /// value is still checked here because the phone is where the action happens.
 class ToolExecutor {
+  /// One week: the same ceiling the set_reminder tool declares on the server.
+  static const _maxReminderMinutes = 10080;
+
   const ToolExecutor(this.actions);
   final ToolActions actions;
 
@@ -59,12 +62,14 @@ class ToolExecutor {
       case 'add_task':
         final title = (input['title'] as String? ?? '').trim();
         final due = (input['due_date'] as String? ?? '').trim();
-        final priority = input['priority'] as String? ?? 'medium';
+        final priority = TaskPriority.tryParse(
+          input['priority'] as String? ?? 'medium',
+        );
         if (title.isEmpty) return _error('add_task needs a title.');
         if (due.isNotEmpty && DateTime.tryParse(due) == null) {
           return _error('due_date must be YYYY-MM-DD.');
         }
-        if (!const {'low', 'medium', 'high'}.contains(priority)) {
+        if (priority == null) {
           return _error('priority must be low, medium or high.');
         }
         final task = await actions.addTask(
@@ -92,9 +97,9 @@ class ToolExecutor {
         final text = (input['text'] as String? ?? '').trim();
         final minutes = input['minutes_from_now'];
         if (text.isEmpty) return _error('set_reminder needs text.');
-        if (minutes is! int || minutes < 1 || minutes > 10080) {
+        if (minutes is! int || minutes < 1 || minutes > _maxReminderMinutes) {
           return _error(
-            'minutes_from_now must be a whole number from 1 to 10080.',
+            'minutes_from_now must be a whole number from 1 to $_maxReminderMinutes.',
           );
         }
         final scheduled = await actions.scheduleReminder(

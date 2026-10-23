@@ -6,7 +6,7 @@
 //   4. Repeat until Claude answers in plain text (at most [maxRounds] rounds).
 // If a turn fails or is cut short, the transcript is rolled back to before your message, so it
 // always ends on a clean assistant reply. A dangling tool_use or an empty turn would make every
-// later request fail. Pure Dart: covered by test/features/tasks/domain/agent_loop_test.dart.
+// later request fail. Plain Dart (no Flutter), covered by test/features/tasks/domain/agent_loop_test.dart.
 
 import '../../../../core/errors/user_messages.dart';
 import '../../../../core/models/claude_model.dart';
@@ -16,9 +16,11 @@ import '../repositories/agent_repository.dart';
 import 'tool_executor.dart';
 
 /// How a run ended: [notice] is what to show under the conversation, or null when all is well.
+/// [unexpectedError] is set when something other than a known failure went wrong, for logging.
 class AgentRunResult {
-  const AgentRunResult({required this.notice});
+  const AgentRunResult({required this.notice, this.unexpectedError});
   final String? notice;
+  final Object? unexpectedError;
 }
 
 class AgentLoop {
@@ -33,9 +35,12 @@ class AgentLoop {
   final int maxRounds;
 
   /// The conversation as the API sees it. Claude's turns are stored exactly as received.
-  final List<Map<String, dynamic>> transcript = [];
+  final List<Map<String, dynamic>> _transcript = [];
 
-  void clear() => transcript.clear();
+  /// A read-only view of the conversation so far.
+  List<Map<String, dynamic>> get transcript => List.unmodifiable(_transcript);
+
+  void clear() => _transcript.clear();
 
   /// Runs one user message to the end. [onItem] receives each line for the screen as it happens.
   /// [isCurrent] returns false once the screen started over, and the run then stops quietly.
@@ -46,15 +51,16 @@ class AgentLoop {
     required void Function(AgentItem item) onItem,
     required bool Function() isCurrent,
   }) async {
-    final rollbackTo = transcript.length;
-    transcript.add({'role': 'user', 'content': text});
+    final rollbackTo = _transcript.length;
+    _transcript.add({'role': 'user', 'content': text});
     String? notice;
+    Object? unexpected;
     var clean = false;
     try {
       for (var round = 0; round < maxRounds && !cancel.isCancelled; round++) {
         final reply = await repository.next(
           model: model,
-          transcript: List.of(transcript),
+          transcript: List.of(_transcript),
           cancel: cancel,
         );
         if (!isCurrent()) return const AgentRunResult(notice: null);
@@ -66,7 +72,7 @@ class AgentLoop {
           // Only a non-empty answer with no pending tool call is safe to keep.
           clean = reply.content.isNotEmpty && reply.toolCalls.isEmpty;
           if (clean) {
-            transcript.add({'role': 'assistant', 'content': reply.content});
+            _transcript.add({'role': 'assistant', 'content': reply.content});
           }
           notice =
               stopReasonNote(reply.stopReason) ??
@@ -74,7 +80,7 @@ class AgentLoop {
           break;
         }
 
-        transcript.add({'role': 'assistant', 'content': reply.content});
+        _transcript.add({'role': 'assistant', 'content': reply.content});
         final results = <Map<String, dynamic>>[];
         for (final call in reply.toolCalls) {
           final input = call['input'];
@@ -92,7 +98,7 @@ class AgentLoop {
           });
         }
         // Every result goes back in ONE user message, which keeps parallel tool calls working.
-        transcript.add({'role': 'user', 'content': results});
+        _transcript.add({'role': 'user', 'content': results});
       }
       if (!clean && notice == null) {
         notice = cancel.isCancelled
@@ -100,11 +106,12 @@ class AgentLoop {
             : 'Claude used too many steps. Try a simpler request.';
       }
     } catch (e) {
-      notice = messageFor(e, cancelled: cancel.isCancelled, tag: 'agent');
+      notice = messageFor(e, cancelled: cancel.isCancelled);
+      if (isUnexpected(e, cancelled: cancel.isCancelled)) unexpected = e;
     }
     if (!clean && isCurrent()) {
-      transcript.removeRange(rollbackTo, transcript.length);
+      _transcript.removeRange(rollbackTo, _transcript.length);
     }
-    return AgentRunResult(notice: notice);
+    return AgentRunResult(notice: notice, unexpectedError: unexpected);
   }
 }

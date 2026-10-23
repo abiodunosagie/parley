@@ -4,6 +4,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/errors/error_log.dart';
 import '../../../../core/errors/user_messages.dart';
 import '../../../../core/network/cancel_token.dart';
 import '../../../../core/state/selected_model_provider.dart';
@@ -67,7 +68,7 @@ class ExtractController extends Notifier<ExtractState> {
     } catch (e) {
       if (ref.mounted) {
         state = ExtractFailed(
-          messageFor(e, cancelled: cancel.isCancelled, tag: 'extract'),
+          reportError(e, cancelled: cancel.isCancelled, tag: 'extract'),
         );
       }
     }

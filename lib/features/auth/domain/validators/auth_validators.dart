@@ -1,4 +1,4 @@
-// FILE: features/auth/domain/validators.dart
+// FILE: features/auth/domain/validators/auth_validators.dart
 // Form rules for the sign-in screen. Pure functions: null means valid, text means what to fix.
 
 String? validateEmail(String email) =>

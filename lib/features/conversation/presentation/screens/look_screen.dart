@@ -5,8 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/widgets/model_picker_button.dart';
-import '../../../auth/presentation/widgets/account_button.dart';
+import '../../../home/presentation/widgets/feature_app_bar.dart';
 import '../../domain/repositories/photo_repository.dart';
 import '../providers/conversation_controller.dart';
 import '../widgets/conversation_view.dart';
@@ -24,20 +23,6 @@ class LookScreen extends ConsumerWidget {
     'Turn this whiteboard into clean notes',
   ];
 
-  Future<void> _pick(
-    BuildContext context,
-    WidgetRef ref,
-    PhotoSource source,
-  ) async {
-    final problem = await ref
-        .read(lookControllerProvider.notifier)
-        .pickPhoto(source);
-    if (problem != null && context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(problem)));
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(lookControllerProvider);
@@ -45,27 +30,27 @@ class LookScreen extends ConsumerWidget {
     final photo = state.photo;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Look'),
+      appBar: FeatureAppBar(
+        title: 'Look',
         actions: [
-          const ModelPickerButton(),
           if (photo != null)
             IconButton(
               tooltip: 'New photo',
               onPressed: controller.reset,
               icon: const Icon(Icons.add_a_photo_outlined),
             ),
-          const AccountButton(),
         ],
       ),
       body: photo == null
           ? PickPhotoPanel(
-              onCamera: () => _pick(context, ref, PhotoSource.camera),
-              onLibrary: () => _pick(context, ref, PhotoSource.library),
+              notice: state.notice,
+              onCamera: () => controller.pickPhoto(PhotoSource.camera),
+              onLibrary: () => controller.pickPhoto(PhotoSource.library),
             )
           : ConversationView(
               state: state,
-              controller: controller,
+              onSend: controller.send,
+              onStop: controller.stop,
               hint: state.isEmpty ? 'Ask about this photo' : 'Ask a follow-up',
               empty: IntroList(
                 header: PhotoPreview(photo),

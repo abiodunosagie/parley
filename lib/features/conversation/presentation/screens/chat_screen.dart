@@ -5,9 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/widgets/model_picker_button.dart';
 import '../../../../core/widgets/screen_intro.dart';
-import '../../../auth/presentation/widgets/account_button.dart';
+import '../../../home/presentation/widgets/feature_app_bar.dart';
 import '../providers/conversation_controller.dart';
 import '../widgets/conversation_view.dart';
 import '../../../../core/widgets/intro_list.dart';
@@ -27,21 +26,20 @@ class ChatScreen extends ConsumerWidget {
     final controller = ref.read(chatControllerProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chat'),
+      appBar: FeatureAppBar(
+        title: 'Chat',
         actions: [
-          const ModelPickerButton(),
           IconButton(
             tooltip: 'New chat',
             onPressed: state.isEmpty ? null : controller.reset,
             icon: const Icon(Icons.edit_square),
           ),
-          const AccountButton(),
         ],
       ),
       body: ConversationView(
         state: state,
-        controller: controller,
+        onSend: controller.send,
+        onStop: controller.stop,
         empty: IntroList(
           header: const ScreenIntro(
             title: 'Ask anything.',

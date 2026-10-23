@@ -23,7 +23,7 @@ class PhoneToolActions implements ToolActions {
   Future<Task> addTask({
     required String title,
     required String dueDate,
-    required String priority,
+    required TaskPriority priority,
   }) => _tasks.add(title: title, dueDate: dueDate, priority: priority);
 
   @override

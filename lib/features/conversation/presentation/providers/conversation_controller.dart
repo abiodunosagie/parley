@@ -1,5 +1,6 @@
 // FILE: features/conversation/presentation/providers/conversation_controller.dart
 // FEATURE 1 AND 2 LOGIC: a streamed conversation with Claude, used by Chat and Look.
+// Chat uses this controller as is; Look extends it with the photo (LookController below).
 // The flow of `send()`:
 //   1. Add your message and an empty reply bubble to the screen.
 //   2. Ask ConversationRepository.reply() for the reply.
@@ -7,9 +8,11 @@
 //   4. When the stream ends, show a note if Claude stopped early or something failed.
 // `_current` makes sure an old reply that is still arriving can never write into a new chat.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/errors/app_exception.dart';
+import '../../../../core/errors/error_log.dart';
 import '../../../../core/errors/user_messages.dart';
 import '../../../../core/network/cancel_token.dart';
 import '../../../../core/state/selected_model_provider.dart';
@@ -36,26 +39,16 @@ class ConversationController extends Notifier<ConversationState> {
     return const ConversationState();
   }
 
-  /// Look: takes or picks a photo and starts a new conversation about it. Returns a message to
-  /// show when it could not get one (access denied, unsupported file), or null.
-  Future<String?> pickPhoto(PhotoSource source) async {
-    try {
-      final photo = await ref.read(photoRepositoryProvider).pick(source);
-      if (photo == null || !ref.mounted) return null;
-      _abandon();
-      state = ConversationState(photo: photo);
-      return null;
-    } on AppException catch (e) {
-      return e.message;
-    }
-  }
-
   void reset() {
     _abandon();
     state = const ConversationState();
   }
 
   void stop() => _current?.cancel();
+
+  /// Cancels any running reply and stops it from touching the state again.
+  @protected
+  void abandonCurrent() => _abandon();
 
   void _abandon() {
     _current?.cancel();
@@ -70,13 +63,13 @@ class ConversationController extends Notifier<ConversationState> {
       attachment: state.isEmpty ? state.photo : null,
     );
     final history = [...state.messages, user];
-    state = ConversationState(
+    state = state.copyWith(
       messages: [
         ...history,
         const ChatMessage(fromUser: false, text: ''),
       ],
       status: ReplyStatus.streaming,
-      photo: state.photo,
+      notice: () => null,
     );
 
     final token = _current = CancelToken();
@@ -113,27 +106,23 @@ class ConversationController extends Notifier<ConversationState> {
             : 'The connection dropped before the reply finished.';
       }
     } catch (e) {
-      notice = messageFor(e, cancelled: token.isCancelled, tag: 'stream');
+      notice = reportError(e, cancelled: token.isCancelled, tag: 'stream');
     }
 
     if (!stillMine()) return;
     _current = null;
     // A reply that never started is removed, so the next send does not carry an empty turn.
-    state = ConversationState(
+    state = state.copyWith(
       messages: reply.isEmpty ? history : state.messages,
-      notice: notice,
-      photo: state.photo,
+      status: ReplyStatus.idle,
+      notice: () => notice,
     );
   }
 
   void _showReply(String text) {
     final messages = [...state.messages];
     messages[messages.length - 1] = messages.last.withText(text);
-    state = ConversationState(
-      messages: messages,
-      status: ReplyStatus.streaming,
-      photo: state.photo,
-    );
+    state = state.copyWith(messages: messages);
   }
 }
 
@@ -142,7 +131,23 @@ final chatControllerProvider =
       () => ConversationController(ConversationKind.chat),
     );
 
+/// Look: the same streamed conversation, plus the photo it is about.
+class LookController extends ConversationController {
+  LookController() : super(ConversationKind.vision);
+
+  /// Takes or picks a photo and starts a new conversation about it. When the photo cannot be
+  /// used (access denied, unsupported file) the reason lands in `notice`.
+  Future<void> pickPhoto(PhotoSource source) async {
+    try {
+      final photo = await ref.read(photoRepositoryProvider).pick(source);
+      if (photo == null || !ref.mounted) return;
+      abandonCurrent();
+      state = ConversationState(photo: photo);
+    } on AppException catch (e) {
+      if (ref.mounted) state = state.copyWith(notice: () => e.message);
+    }
+  }
+}
+
 final lookControllerProvider =
-    NotifierProvider<ConversationController, ConversationState>(
-      () => ConversationController(ConversationKind.vision),
-    );
+    NotifierProvider<LookController, ConversationState>(LookController.new);

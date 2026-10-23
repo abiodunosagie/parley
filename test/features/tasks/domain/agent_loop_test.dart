@@ -32,7 +32,7 @@ class _Phone implements ToolActions {
   Future<Task> addTask({
     required String title,
     required String dueDate,
-    required String priority,
+    required TaskPriority priority,
   }) async {
     final task = Task(
       id: 't${list.length + 1}',

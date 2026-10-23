@@ -10,12 +10,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/env.dart';
 import '../../../../core/errors/app_exception.dart';
+import '../../../../core/session/account_cleanup_provider.dart';
 import '../../../../core/supabase/supabase_provider.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/services/delete_account.dart';
 
-class SupabaseAuthRepository implements AuthRepository {
-  SupabaseAuthRepository(this._client);
+class AuthRepositoryImpl implements AuthRepository {
+  AuthRepositoryImpl(this._client);
   final SupabaseClient _client;
 
   GoTrueClient get _auth => _client.auth;
@@ -136,5 +138,12 @@ class SupabaseAuthRepository implements AuthRepository {
 }
 
 final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => SupabaseAuthRepository(ref.watch(supabaseClientProvider)),
+  (ref) => AuthRepositoryImpl(ref.watch(supabaseClientProvider)),
+);
+
+final deleteAccountProvider = Provider<DeleteAccount>(
+  (ref) => DeleteAccount(
+    repository: ref.watch(authRepositoryProvider),
+    cleanups: ref.watch(accountCleanupsProvider),
+  ),
 );

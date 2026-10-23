@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/notice.dart';
 import '../../../../core/widgets/screen_intro.dart';
 
 class PickPhotoPanel extends StatelessWidget {
@@ -10,9 +11,13 @@ class PickPhotoPanel extends StatelessWidget {
     super.key,
     required this.onCamera,
     required this.onLibrary,
+    this.notice,
   });
   final VoidCallback onCamera;
   final VoidCallback onLibrary;
+
+  /// Why the last photo could not be used, if it could not.
+  final String? notice;
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +31,11 @@ class PickPhotoPanel extends StatelessWidget {
             body: 'Receipts, menus, whiteboards, a fridge shelf. Claude reads what is really there.',
           ),
           const Spacer(),
+          if (notice != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Notice(notice!),
+            ),
           FilledButton.icon(
             onPressed: onCamera,
             icon: const Icon(Icons.photo_camera_outlined),

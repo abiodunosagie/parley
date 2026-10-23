@@ -2,7 +2,7 @@
 // The fields Claude fills in from a pasted job post. The server forces Claude's
 // answer to match this exact shape (structured output), so parsing it can never fail on a typo.
 
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 
 /// The fields Claude fills from a pasted job post. The shape is fixed by `JOB_POST_SCHEMA` in
 /// `supabase/functions/claude/schemas.ts`; structured output guarantees the reply matches it.

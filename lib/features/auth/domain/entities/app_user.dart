@@ -2,7 +2,7 @@
 // The signed-in person, as the rest of the app sees them. Plain Dart: no Supabase types leak
 // past the data layer.
 
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 
 @immutable
 class AppUser {

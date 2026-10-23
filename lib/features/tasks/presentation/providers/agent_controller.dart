@@ -6,6 +6,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/errors/error_log.dart';
 import '../../../../core/models/claude_model.dart';
 import '../../../../core/network/cancel_token.dart';
 import '../../../../core/state/selected_model_provider.dart';
@@ -32,10 +33,23 @@ class AgentState {
   final ClaudeModel? model;
 
   bool get isEmpty => items.isEmpty;
+
+  AgentState copyWith({
+    List<AgentItem>? items,
+    bool? running,
+    String? Function()? notice,
+  }) => AgentState(
+    items: items ?? this.items,
+    running: running ?? this.running,
+    notice: notice == null ? this.notice : notice(),
+    model: model,
+  );
 }
 
 class AgentController extends Notifier<AgentState> {
-  late final AgentLoop _loop;
+  // Built fresh in build(): Riverpod reruns build() on the same instance when the provider is
+  // invalidated (for example after signing in again), so this must not be `late final`.
+  late AgentLoop _loop;
 
   /// The run that owns the state; starting over replaces it (same pattern as the chat controller).
   CancelToken? _current;
@@ -77,21 +91,19 @@ class AgentController extends Notifier<AgentState> {
       model: model,
       cancel: token,
       isCurrent: isCurrent,
-      onItem: (item) => state = AgentState(
-        items: [...state.items, item],
-        running: true,
-        model: model,
-      ),
+      onItem: (item) => state = state.copyWith(items: [...state.items, item]),
     );
 
     if (!isCurrent()) return;
     _current = null;
+    final error = result.unexpectedError;
+    if (error != null) reportError(error, cancelled: false, tag: 'agent');
     final notice =
         result.notice ??
         (model != selected
             ? 'This conversation stays on ${model.label}. Start a new one to use another model.'
             : null);
-    state = AgentState(items: state.items, notice: notice, model: model);
+    state = state.copyWith(running: false, notice: () => notice);
   }
 }
 

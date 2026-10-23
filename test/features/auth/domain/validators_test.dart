@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:parley/features/auth/domain/validators.dart';
+import 'package:parley/features/auth/domain/validators/auth_validators.dart';
 
 void main() {
   test('email', () {

@@ -24,25 +24,43 @@ class TaskPanel extends ConsumerWidget {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: colors.line)),
       ),
-      child: tasks.isEmpty
-          ? Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'No tasks yet. Ask Parley to add one.',
-                style: TextStyle(color: colors.muted),
-              ),
-            )
-          : ListView.builder(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: tasks.length,
-              itemBuilder: (context, i) => TaskTile(
-                task: tasks[i],
-                onToggle: (done) => controller.setDone(tasks[i].id, done: done),
-                onDelete: () => controller.remove(tasks[i].id),
-              ),
-            ),
+      child: switch (tasks) {
+        AsyncData(:final value) when value.isEmpty => _Message(
+          'No tasks yet. Ask Parley to add one.',
+          colors.muted,
+        ),
+        AsyncData(:final value) => ListView.builder(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          itemCount: value.length,
+          itemBuilder: (context, i) => TaskTile(
+            task: value[i],
+            onToggle: (done) => controller.setDone(value[i].id, done: done),
+            onDelete: () => controller.remove(value[i].id),
+          ),
+        ),
+        AsyncError() => _Message(
+          'Could not load your tasks. Restart the app to try again.',
+          colors.danger,
+        ),
+        _ => const Padding(
+          padding: EdgeInsets.all(16),
+          child: LinearProgressIndicator(minHeight: 2),
+        ),
+      },
     );
   }
+}
+
+class _Message extends StatelessWidget {
+  const _Message(this.text, this.color);
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: Text(text, style: TextStyle(color: color)),
+  );
 }

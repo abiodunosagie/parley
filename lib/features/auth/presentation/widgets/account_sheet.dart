@@ -25,29 +25,36 @@ class AccountSheet extends ConsumerWidget {
     final email = ref.watch(currentUserProvider).value?.email ?? '';
     final text = Theme.of(context).textTheme;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('SIGNED IN AS', style: text.labelSmall),
-            const SizedBox(height: 4),
-            Text(email, style: text.bodyLarge),
-            const SizedBox(height: 20),
-            ...switch (state) {
-              AccountOverview() => _overview(context, controller),
-              ConfirmingDelete(:final error) => _confirm(
-                context,
-                controller,
-                error: error,
-                deleting: false,
-              ),
-              DeletingAccount() ||
-              AccountDeleted() => _confirm(context, controller, deleting: true),
-            },
-          ],
+    // While deleting, a tap outside the sheet does nothing; the delete always finishes first.
+    return PopScope(
+      canPop: state is! DeletingAccount,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('SIGNED IN AS', style: text.labelSmall),
+              const SizedBox(height: 4),
+              Text(email, style: text.bodyLarge),
+              const SizedBox(height: 20),
+              ...switch (state) {
+                AccountOverview() => _overview(context, controller),
+                ConfirmingDelete(:final error) => _confirm(
+                  context,
+                  controller,
+                  error: error,
+                  deleting: false,
+                ),
+                DeletingAccount() || AccountDeleted() => _confirm(
+                  context,
+                  controller,
+                  deleting: true,
+                ),
+              },
+            ],
+          ),
         ),
       ),
     );

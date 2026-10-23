@@ -4,8 +4,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/errors/user_messages.dart';
-import '../../../../core/session/account_cleanup_provider.dart';
+import '../../../../core/errors/error_log.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 
 sealed class AccountSheetState {
@@ -39,26 +38,34 @@ class AccountSheetController extends Notifier<AccountSheetState> {
 
   void keepAccount() => state = const AccountOverview();
 
-  Future<void> signOut() => ref.read(authRepositoryProvider).signOut();
+  /// Signs out everywhere; if the server cannot be reached, forgets the session on this phone
+  /// so the button always does what it says.
+  Future<void> signOut() async {
+    final repository = ref.read(authRepositoryProvider);
+    try {
+      await repository.signOut();
+    } catch (e) {
+      reportError(e, cancelled: false, tag: 'sign-out');
+      await repository.signOut(everywhere: false);
+    }
+  }
 
   Future<void> deleteAccount() async {
     if (state is DeletingAccount) return;
-    final repository = ref.read(authRepositoryProvider);
-    final userId = repository.currentUser?.id;
-    if (userId == null) return;
+    // Read everything before the first await: if the sheet closes meanwhile, this controller is
+    // disposed and `ref` can no longer be used, but the delete must still finish.
+    final deleteAccount = ref.read(deleteAccountProvider);
     state = const DeletingAccount();
     try {
-      await repository.deleteAccount();
-      // Clean up before signing out: signing out closes this sheet and disposes this controller.
-      for (final cleanup in ref.read(accountCleanupsProvider)) {
-        await cleanup(userId);
+      final cleanupFailures = await deleteAccount();
+      for (final failure in cleanupFailures) {
+        reportError(failure, cancelled: false, tag: 'account clean-up');
       }
       if (ref.mounted) state = const AccountDeleted();
-      await repository.signOut(everywhere: false);
     } catch (e) {
       if (ref.mounted) {
         state = ConfirmingDelete(
-          error: messageFor(e, cancelled: false, tag: 'delete-account'),
+          error: reportError(e, cancelled: false, tag: 'delete-account'),
         );
       }
     }

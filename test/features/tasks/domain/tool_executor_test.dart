@@ -19,7 +19,7 @@ class _FakePhone implements ToolActions {
   Future<Task> addTask({
     required String title,
     required String dueDate,
-    required String priority,
+    required TaskPriority priority,
   }) async {
     final task = Task(
       id: 't${list.length + 1}',
@@ -59,7 +59,11 @@ void main() {
   });
 
   test('list_tasks returns today and every task as JSON', () async {
-    await phone.addTask(title: 'Milk', dueDate: '2026-10-24', priority: 'high');
+    await phone.addTask(
+      title: 'Milk',
+      dueDate: '2026-10-24',
+      priority: TaskPriority.high,
+    );
     final out = await tools.run('list_tasks', {});
     final json = jsonDecode(out.content) as Map<String, dynamic>;
     expect(json['today'], '2026-10-23');
@@ -112,7 +116,11 @@ void main() {
   test(
     'complete_task marks the task, or tells Claude to look up the id',
     () async {
-      await phone.addTask(title: 'Milk', dueDate: '', priority: 'low');
+      await phone.addTask(
+        title: 'Milk',
+        dueDate: '',
+        priority: TaskPriority.low,
+      );
       expect(
         (await tools.run('complete_task', {'task_id': 't1'})).summary,
         'Completed "Milk"',

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,60 +5,16 @@ import 'package:parley/app/app.dart';
 import 'package:parley/core/session/access_token_provider.dart';
 import 'package:parley/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:parley/features/auth/domain/entities/app_user.dart';
-import 'package:parley/features/auth/domain/repositories/auth_repository.dart';
 import 'package:parley/features/auth/presentation/screens/sign_in_screen.dart';
 import 'package:parley/features/conversation/presentation/screens/chat_screen.dart';
 import 'package:parley/features/conversation/presentation/screens/look_screen.dart';
 import 'package:parley/features/extract/presentation/screens/extract_screen.dart';
 import 'package:parley/features/tasks/data/repositories/task_repository_impl.dart';
-import 'package:parley/features/tasks/domain/entities/task.dart';
-import 'package:parley/features/tasks/domain/repositories/task_repository.dart';
 import 'package:parley/features/tasks/presentation/screens/tasks_screen.dart';
 
-class _FakeAuth implements AuthRepository {
-  _FakeAuth(this.currentUser);
-  @override
-  AppUser? currentUser;
-  final _changes = StreamController<AppUser?>.broadcast();
+import '../helpers/fakes.dart';
 
-  @override
-  Stream<AppUser?> watchUser() => _changes.stream;
-
-  @override
-  Future<String> accessToken({bool fresh = false}) async => 'token';
-
-  @override
-  Future<void> deleteAccount() async {}
-
-  @override
-  Future<void> signIn({required String email, required String password}) async {
-    currentUser = AppUser(id: 'u1', email: email);
-    _changes.add(currentUser);
-  }
-
-  @override
-  Future<void> signOut({bool everywhere = true}) async {
-    currentUser = null;
-    _changes.add(null);
-  }
-
-  @override
-  Future<SignUpOutcome> signUp({
-    required String email,
-    required String password,
-  }) async => SignUpOutcome.signedIn;
-}
-
-class _MemoryTasks implements TaskRepository {
-  @override
-  Future<void> forget(String userId) async {}
-  @override
-  Future<List<Task>> load(String userId) async => const [];
-  @override
-  Future<void> save(String userId, List<Task> tasks) async {}
-}
-
-Future<_FakeAuth> _pumpApp(
+Future<FakeAuth> _pumpApp(
   WidgetTester tester, {
   required bool signedIn,
   required Brightness brightness,
@@ -70,7 +24,7 @@ Future<_FakeAuth> _pumpApp(
   tester.platformDispatcher.platformBrightnessTestValue = brightness;
   addTearDown(tester.view.reset);
   addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
-  final auth = _FakeAuth(
+  final auth = FakeAuth(
     signedIn ? const AppUser(id: 'u1', email: 'me@example.com') : null,
   );
   await tester.pumpWidget(
@@ -78,7 +32,7 @@ Future<_FakeAuth> _pumpApp(
       overrides: [
         authRepositoryProvider.overrideWithValue(auth),
         accessTokenProvider.overrideWithValue(auth.accessToken),
-        taskRepositoryProvider.overrideWithValue(_MemoryTasks()),
+        taskRepositoryProvider.overrideWithValue(MemoryTasks()),
       ],
       child: const ParleyApp(),
     ),

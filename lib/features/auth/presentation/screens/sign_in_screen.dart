@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/parley_colors.dart';
-import '../../../../core/widgets/notice_line.dart';
+import '../../../../core/widgets/notice.dart';
 import '../../../../core/widgets/screen_intro.dart';
-import '../../domain/validators.dart';
+import '../../domain/validators/auth_validators.dart';
 import '../providers/auth_form_controller.dart';
 import '../widgets/email_field.dart';
 import '../widgets/password_field.dart';

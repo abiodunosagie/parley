@@ -5,10 +5,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/widgets/model_picker_button.dart';
-import '../../../../core/widgets/notice_line.dart';
+import '../../../../core/widgets/notice.dart';
 import '../../../../core/widgets/screen_intro.dart';
-import '../../../auth/presentation/widgets/account_button.dart';
+import '../../../home/presentation/widgets/feature_app_bar.dart';
 import '../providers/extract_controller.dart';
 import '../widgets/extract_button.dart';
 import '../widgets/job_post_fields.dart';
@@ -40,10 +39,7 @@ Comp: EUR 55k to 70k + equity. 3+ years shipping mobile apps. Applications close
     final busy = state is Extracting;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Extract'),
-        actions: const [ModelPickerButton(), AccountButton()],
-      ),
+      appBar: FeatureAppBar(title: 'Extract'),
       body: ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.all(16),

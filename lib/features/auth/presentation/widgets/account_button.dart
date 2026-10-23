@@ -15,7 +15,8 @@ class AccountButton extends StatelessWidget {
       icon: const Icon(Icons.account_circle_outlined),
       onPressed: () => showModalBottomSheet<void>(
         context: context,
-        showDragHandle: true,
+        // No drag-to-close, so a delete in progress cannot be swiped away halfway.
+        enableDrag: false,
         builder: (_) => const AccountSheet(),
       ),
     );

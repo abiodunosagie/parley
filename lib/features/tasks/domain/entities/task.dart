@@ -2,7 +2,18 @@
 // One task on the list the agent manages. `id` is short on purpose so Claude can repeat it back
 // in complete_task.
 
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
+
+/// Matches the `priority` enum of the add_task tool in supabase/functions/claude/schemas.ts.
+enum TaskPriority {
+  low,
+  medium,
+  high;
+
+  /// The priority with this name, or null for anything else.
+  static TaskPriority? tryParse(String? name) =>
+      TaskPriority.values.asNameMap()[name];
+}
 
 @immutable
 class Task {
@@ -19,7 +30,7 @@ class Task {
 
   /// YYYY-MM-DD, or empty when the task has no date.
   final String dueDate;
-  final String priority;
+  final TaskPriority priority;
   final bool done;
 
   Task copyWith({bool? done}) => Task(
@@ -34,7 +45,7 @@ class Task {
     'id': id,
     'title': title,
     'due_date': dueDate,
-    'priority': priority,
+    'priority': priority.name,
     'done': done,
   };
 
@@ -42,7 +53,9 @@ class Task {
     id: json['id'] as String,
     title: json['title'] as String,
     dueDate: json['due_date'] as String? ?? '',
-    priority: json['priority'] as String? ?? 'medium',
+    priority:
+        TaskPriority.tryParse(json['priority'] as String?) ??
+        TaskPriority.medium,
     done: json['done'] as bool? ?? false,
   );
 }

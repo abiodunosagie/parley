@@ -1,5 +1,5 @@
-// FILE: core/widgets/notice_line.dart
-// A one-line red message under the content: an error, or why Claude stopped early.
+// FILE: core/widgets/notice.dart
+// A one-line message in the danger colour under the content: an error, or why Claude stopped early.
 
 import 'package:flutter/material.dart';
 

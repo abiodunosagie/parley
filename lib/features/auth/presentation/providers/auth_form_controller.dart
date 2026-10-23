@@ -6,7 +6,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/errors/user_messages.dart';
+import '../../../../core/errors/error_log.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -94,7 +94,7 @@ class AuthFormController extends Notifier<AuthFormState> {
     } catch (e) {
       if (ref.mounted) {
         state = state.copyWith(
-          status: SubmitFailed(messageFor(e, cancelled: false, tag: 'auth')),
+          status: SubmitFailed(reportError(e, cancelled: false, tag: 'auth')),
         );
       }
     }

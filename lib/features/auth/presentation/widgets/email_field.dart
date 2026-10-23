@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../domain/validators.dart';
+import '../../domain/validators/auth_validators.dart';
 
 class EmailField extends StatelessWidget {
   const EmailField({super.key, required this.controller});

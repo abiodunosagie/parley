@@ -35,4 +35,16 @@ class ConversationState {
 
   bool get busy => status == ReplyStatus.streaming;
   bool get isEmpty => messages.isEmpty;
+
+  /// A copy with some fields changed. `notice` takes a function so it can be set back to null.
+  ConversationState copyWith({
+    List<ChatMessage>? messages,
+    ReplyStatus? status,
+    String? Function()? notice,
+  }) => ConversationState(
+    messages: messages ?? this.messages,
+    status: status ?? this.status,
+    notice: notice == null ? this.notice : notice(),
+    photo: photo,
+  );
 }
