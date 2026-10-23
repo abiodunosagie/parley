@@ -1,11 +1,10 @@
 """Turn text into SVG path data with fontTools (outlined, no live <text>)."""
-import sys
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.transformPen import TransformPen
 from fontTools.varLib import instancer
 
-FONTS = '/Users/abiodunosagie/Projects/mobile/parley/brand/fonts/'
+FONTS = str(__import__('pathlib').Path(__file__).resolve().parent / 'fonts') + '/'
 _cache = {}
 
 def font(name, **axes):

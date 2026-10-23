@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  flutter:
+    name: Flutter analyze and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: 3.47.4
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test
+
+  edge-function:
+    name: Edge function check and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: supabase/functions/claude
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: denoland/setup-deno@v2.0.5
+        with:
+          deno-version: v2.9.x
+      - run: deno check index.ts
+      - run: deno lint
+      - run: deno test

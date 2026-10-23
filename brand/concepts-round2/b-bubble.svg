@@ -1,4 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-<defs><mask id="m"><rect width="256" height="256" fill="white"/><path d="M128.96,103.43 A22,22 0 1 1 138.02,115.45 L124.52,116.20 Z" fill="black"/></mask></defs>
-<rect width="256" height="256" fill="#14503D"/>
-<g mask="url(#m)" fill="#F3EFE6"><rect x="54" y="40" width="34" height="180" rx="17" fill="#F3EFE6"/><path d="M80,52 C118,36 150,66 188,50 C206,43 216,54 216,72 L216,130 C216,148 206,154 188,148 C150,134 118,162 80,148 Z"/></g></svg>

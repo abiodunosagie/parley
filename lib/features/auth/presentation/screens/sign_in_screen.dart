@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/parley_colors.dart';
 import '../../../../core/widgets/notice.dart';
+import '../../../../core/widgets/parley_mark.dart';
 import '../../../../core/widgets/screen_intro.dart';
 import '../../domain/validators/auth_validators.dart';
 import '../providers/auth_form_controller.dart';
@@ -55,17 +56,24 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
             children: [
-              Text(
-                'Parley',
-                style: TextStyle(
-                  color: context.colors.accent,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
+              Row(
+                children: [
+                  const ParleyMark(size: 36),
+                  const SizedBox(width: 10),
+                  Text(
+                    'parley',
+                    style: TextStyle(
+                      color: context.colors.ink,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
               ),
               ScreenIntro(
                 title: creating ? 'Create your account.' : 'Welcome back.',
-                body: 'Chat, photos, structured answers and an agent that runs your task list, all powered by Claude.',
+                body: 'Chat with live web answers, ask photos and PDFs, rewrite, scan receipts, and let an agent run your task list. All powered by Claude.',
               ),
               EmailField(controller: _email),
               const SizedBox(height: 12),

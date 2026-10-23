@@ -6,7 +6,8 @@ How to run the app, find errors, and change the backend. Read this before you to
 
 ```
 Flutter app (lib/)                     Supabase project                          Anthropic API
-  Chat, Look, Extract, Tasks  --->  Edge function "claude"            --->   claude-opus-5-5
+  Chat, Look, Read, Tasks,    --->  Edge function "claude"            --->   claude-opus-5-5
+  Rewrite, Receipts, Extract
   email + password accounts        checks the session, the body,            claude-sonnet-5-5
   holds NO Claude key              the rate limits, holds the key           claude-haiku-5-5
                                    Edge function "delete-account"
@@ -18,7 +19,9 @@ Flutter app (lib/)                     Supabase project                         
 - Every call is logged in `public.claude_requests`. One locked database function
   (`claim_claude_request`) checks the limits and records the call in a single step: 20 requests a
   minute, 200 a day and 150k tokens a day per user, 400 a day per network, and 2000 requests or
-  1M tokens a day for the whole project (`supabase/functions/claude/config.ts`).
+  1M tokens a day for the whole project (`supabase/functions/claude/config.ts`). Web searches are
+  logged too and capped at 30 per user per day; a PDF question is token-counted first and refused
+  above 60k input tokens.
 - Accounts are Supabase email and password. Email confirmation is off, because Supabase's built-in
   mailer only sends a few emails an hour; add your own SMTP (for example Resend) before turning it on.
 - Settings > Delete account calls `delete-account`, which deletes the user and their usage rows.
