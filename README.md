@@ -28,7 +28,8 @@ key off the device and every user inside hard limits.
 
 Also in every screen: history saved on the phone per account (reopen and carry on, or delete),
 on-device voice dictation with a live waveform, three models to choose from (Haiku, Sonnet,
-Opus), and light and dark mode.
+Opus), and light and dark mode. A first launch plays the brand animation, then four welcome
+pages shown once; sign-up asks your name, and Chat greets you by it.
 
 ## Screens
 

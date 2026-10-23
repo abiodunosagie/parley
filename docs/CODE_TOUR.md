@@ -8,7 +8,7 @@ what to read next. Start at `lib/main.dart` and follow the trail, or use this pa
 ```
 lib/
   main.dart                 entry point: Supabase, dependency wiring, runApp
-  app/                      the app widget, GoRouter routes, per-account reset
+  app/                      the app widget, the launch splash, GoRouter routes and the gate, per-account reset
   core/                     shared by every feature, never imports a feature
     config/                 build-time settings (Supabase URL + publishable key)
     network/                ClaudeClient (talks to the `claude` edge function), SSE parsing, CancelToken
@@ -16,7 +16,7 @@ lib/
     models/                 the Claude model list, SavedSummary (one line in a history list)
     state/                  the selected model; saved_history.dart (history lists + controller mixin)
     session/                the session token and account clean-up hooks (overridden in main.dart)
-    storage/                LocalStore (history on the phone) and SavedCollection (one feature's items)
+    storage/                LocalStore (history on the phone), SavedCollection, the preferences provider
     speech/                 on-device dictation: SpeechService and VoiceInput
     media/                  photo picking and file-type checks shared by Look and Receipts
     platform/               opening a cited web page in the browser
@@ -40,6 +40,7 @@ The features, and the Claude API feature each one shows:
 | Tools: Rewrite | `rewrite` | streaming text with a fixed instruction |
 | Tools: Receipts | `receipt` | vision plus structured output (a fixed JSON shape) |
 | Tools: Extract | `extract` | structured output from pasted text |
+| Welcome pages | `onboarding` | shown once per install, before sign-in |
 
 Rules, enforced by `test/architecture_test.dart` on every test run:
 
@@ -181,12 +182,21 @@ The mic in the composer (and in the Rewrite and Extract text boxes) uses the pho
 recognition (`core/speech/speech_service.dart`). Words appear in the box as you speak while
 `VoiceWave` moves with your voice; nothing is sent until you tap Send.
 
-## 6. Sign in and navigation
+## 6. Launch, welcome, sign in and navigation
 
-`app/router/app_router.dart` is the only place that decides which screen shows. Signed out: the
-sign-in screen. Signed in: the five tabs in a `StatefulShellRoute`, each keeping its own screen
-alive; Tools opens Rewrite, Receipts and Extract on top of its list. The router re-checks on every
-sign-in or sign-out. `app/session_reset.dart` clears the previous account's screens when the
+`app/router/app_gate.dart` is one pure function that decides which screen may show, in launch
+order: the splash (`app/launch/launch_screen.dart`, the mark's halves meet once, after the first
+frame is drawn), then the welcome pages (`features/onboarding`, once per install: a versioned
+flag in SharedPreferences, opened in `main.dart` before the first frame), then sign-in, then the
+app. `app/router/app_router.dart` re-runs the gate whenever the launch finishes, the welcome pages
+are done, or the signed-in user changes, and hands each step over with a cross-fade.
+
+Signed in: the five tabs in a `StatefulShellRoute`, each keeping its own screen alive; Tools opens
+Rewrite, Receipts and Extract on top of its list.
+
+Creating an account asks for a first and last name (`auth/domain/validators/auth_validators.dart`),
+saved in the account's user metadata; Chat greets you with it, and the account sheet lets older
+accounts add or change it. `app/session_reset.dart` clears the previous account's screens when the
 account changes.
 
 ## 7. Tests
@@ -197,7 +207,9 @@ test/features/...     mirrors lib/features: entities, mappers, validators, tools
                       word diff, receipts, controllers (chat streaming, history, model lock, races,
                       receipt scans), repositories, delete flow
 test/helpers/         shared fakes (accounts, tasks, saved history and dictation, all in memory)
-test/app/             the whole app with the router, signed in and out, every tab and tool, light and dark
+test/app/             the gate, and the whole app: first run (splash, welcome, sign-in), signed in and out,
+                      every tab and tool, light and dark, a small phone with large text
 test/architecture_test.dart   the layering rules above
 supabase/functions/claude/validate_test.ts   server-side request and replay validation
+integration_test/     on a Simulator: README screenshots against the live backend, and the first run
 ```
