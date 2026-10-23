@@ -1,5 +1,5 @@
 // FILE: core/widgets/model_picker_button.dart
-// The "Opus 5.5" button in the app bar. Opens a sheet to switch between Haiku, Sonnet and Opus.
+// The "Opus" button in the app bar (the family only, so long titles keep their room). Opens a sheet to switch between Haiku, Sonnet and Opus.
 // The choice is stored in selectedModelProvider (core/state/selected_model_provider.dart).
 
 import 'package:flutter/material.dart';
@@ -20,8 +20,11 @@ class ModelPickerButton extends ConsumerWidget {
       onPressed: () => _open(context, ref),
       iconAlignment: IconAlignment.end,
       icon: const Icon(Icons.expand_more, size: 20),
-      label: Text(model.label),
-      style: TextButton.styleFrom(foregroundColor: context.colors.ink),
+      label: Text(model.family),
+      style: TextButton.styleFrom(
+        foregroundColor: context.colors.ink,
+        visualDensity: VisualDensity.compact,
+      ),
     );
   }
 

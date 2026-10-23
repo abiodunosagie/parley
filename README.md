@@ -14,8 +14,6 @@ and PDFs with page-level citations, structured output, and an agent that runs to
 phone. Every feature is a working screen, not a demo snippet, on a backend that keeps the API
 key off the device and every user inside hard limits.
 
-<img src="docs/screenshots/chat-dark.png" alt="Parley Chat in dark mode" width="300" align="right">
-
 ## What it shows
 
 | Screen | What you do | Claude API feature |
@@ -32,7 +30,17 @@ Also in every screen: history saved on the phone per account (reopen and carry o
 on-device voice dictation with a live waveform, three models to choose from (Haiku, Sonnet,
 Opus), and light and dark mode.
 
-<br clear="right">
+## Screens
+
+Captured from the real app talking to the real backend (`integration_test/screenshots_test.dart`).
+
+| Chat with web search | Look | Read a PDF | Tasks agent |
+| --- | --- | --- | --- |
+| <img src="docs/screenshots/chat.png" width="200" alt="Chat answer with web search, reasoning and sources"> | <img src="docs/screenshots/look.png" width="200" alt="Look reading a receipt photo"> | <img src="docs/screenshots/read.png" width="200" alt="Read answering from a PDF with page citations"> | <img src="docs/screenshots/tasks.png" width="200" alt="Tasks agent calling tools on the phone"> |
+
+| Tools | Rewrite | Receipts | Extract |
+| --- | --- | --- | --- |
+| <img src="docs/screenshots/tools.png" width="200" alt="Tools list"> | <img src="docs/screenshots/rewrite.png" width="200" alt="Rewrite with changes highlighted"> | <img src="docs/screenshots/receipts.png" width="200" alt="Receipt read into categories"> | <img src="docs/screenshots/extract.png" width="200" alt="Job post extracted into fields"> |
 
 ## How it is built
 

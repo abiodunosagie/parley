@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parley/app/app.dart';
@@ -87,6 +88,14 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(screen), findsOneWidget, reason: '$title tool');
           expect(tester.takeException(), isNull, reason: '$title tool');
+          // The app bar title is shown in full on a phone-width screen, never cut to "Rec...".
+          final heading = tester.renderObject<RenderParagraph>(
+            find.descendant(
+              of: find.byType(AppBar),
+              matching: find.text(title),
+            ),
+          );
+          expect(heading.didExceedMaxLines, isFalse, reason: '$title title');
           await tester.pageBack();
           await tester.pumpAndSettle();
         }
