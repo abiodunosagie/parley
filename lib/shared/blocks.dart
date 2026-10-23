@@ -1,3 +1,7 @@
+// FILE: shared/blocks.dart
+// Small building blocks reused on several screens: the intro headline, the example
+// prompt buttons, the user's chat bubble, and the red error line.
+
 import 'package:flutter/material.dart';
 
 import '../app/theme.dart';
@@ -41,7 +45,10 @@ class StarterButtons extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 10),
             child: OutlinedButton(
               onPressed: () => onPick(item),
-              style: OutlinedButton.styleFrom(alignment: Alignment.centerLeft, padding: const EdgeInsets.all(14)),
+              style: OutlinedButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.all(14),
+              ),
               child: Text(item),
             ),
           ),
@@ -62,7 +69,10 @@ class UserBubble extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(top: 12, left: 48),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: context.colors.userBubble, borderRadius: kRadius),
+        decoration: BoxDecoration(
+          color: context.colors.userBubble,
+          borderRadius: kRadius,
+        ),
         child: child,
       ),
     );
@@ -83,7 +93,9 @@ class Notice extends StatelessWidget {
         children: [
           Icon(Icons.error_outline, size: 18, color: danger),
           const SizedBox(width: 8),
-          Expanded(child: Text(text, style: TextStyle(color: danger))),
+          Expanded(
+            child: Text(text, style: TextStyle(color: danger)),
+          ),
         ],
       ),
     );

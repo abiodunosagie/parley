@@ -1,3 +1,8 @@
+// FILE: features/auth/auth_gate.dart
+// Decides what to show: the sign-in screen when nobody is signed in, the tabs when
+// someone is. When the account changes it clears the old account's conversations.
+// Read next: lib/app/home_shell.dart, then lib/features/chat/chat_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,7 +32,8 @@ class AuthGate extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
     return user.when(
       data: (user) => user == null ? const AuthScreen() : const HomeShell(),
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (_, _) => const AuthScreen(),
     );
   }

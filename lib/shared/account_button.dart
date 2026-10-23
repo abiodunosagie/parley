@@ -1,3 +1,7 @@
+// FILE: shared/account_button.dart
+// The person icon in the app bar: shows the signed-in email, Sign out, and Delete
+// account (Apple requires in-app account deletion for any app with sign-up).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,7 +40,9 @@ class _AccountSheetState extends ConsumerState<_AccountSheet> {
 
   Future<void> _delete() async {
     setState(() => _deleting = true);
-    final error = await ref.read(authControllerProvider.notifier).deleteAccount();
+    final error = await ref
+        .read(authControllerProvider.notifier)
+        .deleteAccount();
     if (!mounted) return;
     if (error == null) {
       Navigator.pop(context);
@@ -76,7 +82,10 @@ class _AccountSheetState extends ConsumerState<_AccountSheet> {
               const SizedBox(height: 10),
               TextButton(
                 onPressed: () => setState(() => _confirmingDelete = true),
-                style: TextButton.styleFrom(foregroundColor: colors.danger, minimumSize: const Size.fromHeight(48)),
+                style: TextButton.styleFrom(
+                  foregroundColor: colors.danger,
+                  minimumSize: const Size.fromHeight(48),
+                ),
                 child: const Text('Delete account'),
               ),
             ] else ...[
@@ -85,16 +94,25 @@ class _AccountSheetState extends ConsumerState<_AccountSheet> {
                 'Tasks saved on this phone are removed too. This cannot be undone.',
                 style: text.bodyMedium,
               ),
-              if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: TextStyle(color: colors.danger))),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(_error!, style: TextStyle(color: colors.danger)),
+                ),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: _deleting ? null : _delete,
-                style: FilledButton.styleFrom(backgroundColor: colors.danger, foregroundColor: colors.background),
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.danger,
+                  foregroundColor: colors.background,
+                ),
                 child: Text(_deleting ? 'Deleting...' : 'Delete my account'),
               ),
               const SizedBox(height: 10),
               OutlinedButton(
-                onPressed: _deleting ? null : () => setState(() => _confirmingDelete = false),
+                onPressed: _deleting
+                    ? null
+                    : () => setState(() => _confirmingDelete = false),
                 child: const Text('Keep my account'),
               ),
             ],

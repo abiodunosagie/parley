@@ -1,3 +1,7 @@
+// FILE: features/agent/reminders.dart
+// Local notifications for the agent's set_reminder tool. Asks permission the first
+// time, then schedules the reminder on the phone.
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +18,9 @@ class Reminders {
     if (_ready) return;
     tz_data.initializeTimeZones();
     try {
-      tz.setLocalLocation(tz.getLocation((await FlutterTimezone.getLocalTimezone()).identifier));
+      tz.setLocalLocation(
+        tz.getLocation((await FlutterTimezone.getLocalTimezone()).identifier),
+      );
     } catch (e) {
       debugPrint('Parley: unknown time zone, reminders use UTC ($e)');
     }
@@ -28,7 +34,10 @@ class Reminders {
   }
 
   /// Asks for permission the first time, then schedules. Returns false when the user said no.
-  Future<bool> schedule({required String text, required int minutesFromNow}) async {
+  Future<bool> schedule({
+    required String text,
+    required int minutesFromNow,
+  }) async {
     await _init();
     final granted = await _requestPermission();
     if (!granted) return false;
@@ -36,9 +45,15 @@ class Reminders {
       id: DateTime.now().millisecondsSinceEpoch.remainder(1 << 31),
       title: 'Parley reminder',
       body: text,
-      scheduledDate: tz.TZDateTime.now(tz.local).add(Duration(minutes: minutesFromNow)),
+      scheduledDate: tz.TZDateTime.now(tz.local)
+          .add(Duration(minutes: minutesFromNow)),
       notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails('reminders', 'Reminders', importance: Importance.high, priority: Priority.high),
+        android: AndroidNotificationDetails(
+          'reminders',
+          'Reminders',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
         iOS: DarwinNotificationDetails(),
       ),
       // Inexact keeps us clear of Android's exact-alarm permission; a minute of drift is fine here.
@@ -48,10 +63,20 @@ class Reminders {
   }
 
   Future<bool> _requestPermission() async {
-    final ios = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
-    if (ios != null) return await ios.requestPermissions(alert: true, sound: true) ?? false;
-    final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    if (android != null) return await android.requestNotificationsPermission() ?? false;
+    final ios = _plugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
+    if (ios != null) {
+      return await ios.requestPermissions(alert: true, sound: true) ?? false;
+    }
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android != null) {
+      return await android.requestNotificationsPermission() ?? false;
+    }
     return true;
   }
 }

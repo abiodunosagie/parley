@@ -1,3 +1,12 @@
+// FILE: features/conversation/conversation.dart
+// FEATURE 1 AND 2 LOGIC: a streamed conversation with Claude, used by Chat and Look.
+// The flow of `send()`:
+//   1. Add your message and an empty reply bubble to the screen.
+//   2. Ask ClaudeApi.stream() for the reply.
+//   3. Each TextDelta appends to the reply bubble, so the text appears as Claude writes it.
+//   4. When the stream ends, show a note if Claude stopped early or something failed.
+// `_current` makes sure an old reply that is still arriving can never write into a new chat.
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -10,12 +19,17 @@ import 'attachment.dart';
 
 @immutable
 class ChatMessage {
-  const ChatMessage({required this.fromUser, required this.text, this.attachment});
+  const ChatMessage({
+    required this.fromUser,
+    required this.text,
+    this.attachment,
+  });
   final bool fromUser;
   final String text;
   final Attachment? attachment;
 
-  ChatMessage withText(String value) => ChatMessage(fromUser: fromUser, text: value, attachment: attachment);
+  ChatMessage withText(String value) =>
+      ChatMessage(fromUser: fromUser, text: value, attachment: attachment);
 
   /// The Messages API shape: plain text, or an image block followed by the question.
   Map<String, dynamic> toApi() {
@@ -27,7 +41,11 @@ class ChatMessage {
       'content': [
         {
           'type': 'image',
-          'source': {'type': 'base64', 'media_type': image.mediaType, 'data': base64Encode(image.bytes)},
+          'source': {
+            'type': 'base64',
+            'media_type': image.mediaType,
+            'data': base64Encode(image.bytes),
+          },
         },
         {'type': 'text', 'text': text},
       ],
@@ -37,7 +55,12 @@ class ChatMessage {
 
 @immutable
 class ConversationState {
-  const ConversationState({this.messages = const [], this.busy = false, this.notice, this.photo});
+  const ConversationState({
+    this.messages = const [],
+    this.busy = false,
+    this.notice,
+    this.photo,
+  });
   final List<ChatMessage> messages;
   final bool busy;
   final String? notice;
@@ -79,10 +102,17 @@ class ConversationController extends Notifier<ConversationState> {
   Future<void> send(String text) async {
     if (state.busy) return;
     final firstTurn = state.messages.isEmpty;
-    final user = ChatMessage(fromUser: true, text: text, attachment: firstTurn ? state.photo : null);
+    final user = ChatMessage(
+      fromUser: true,
+      text: text,
+      attachment: firstTurn ? state.photo : null,
+    );
     final history = [...state.messages, user];
     state = ConversationState(
-      messages: [...history, const ChatMessage(fromUser: false, text: '')],
+      messages: [
+        ...history,
+        const ChatMessage(fromUser: false, text: ''),
+      ],
       busy: true,
       photo: state.photo,
     );
@@ -93,7 +123,9 @@ class ConversationController extends Notifier<ConversationState> {
     String? notice;
     var done = false;
     try {
-      final events = ref.read(claudeApiProvider).stream(
+      final events = ref
+          .read(claudeApiProvider)
+          .stream(
             mode: mode,
             model: ref.read(selectedModelProvider),
             messages: [for (final m in history) m.toApi()],
@@ -114,7 +146,9 @@ class ConversationController extends Notifier<ConversationState> {
         }
       }
       if (!done) {
-        notice = token.isCancelled ? 'Stopped.' : 'The connection dropped before the reply finished.';
+        notice = token.isCancelled
+            ? 'Stopped.'
+            : 'The connection dropped before the reply finished.';
       }
     } catch (e) {
       notice = noticeFor(e, cancelled: token.isCancelled, tag: 'stream');
@@ -133,12 +167,20 @@ class ConversationController extends Notifier<ConversationState> {
   void _showReply(String text) {
     final messages = [...state.messages];
     messages[messages.length - 1] = messages.last.withText(text);
-    state = ConversationState(messages: messages, busy: true, photo: state.photo);
+    state = ConversationState(
+      messages: messages,
+      busy: true,
+      photo: state.photo,
+    );
   }
 }
 
 final chatProvider =
-    NotifierProvider<ConversationController, ConversationState>(() => ConversationController(ClaudeMode.chat));
+    NotifierProvider<ConversationController, ConversationState>(
+      () => ConversationController(ClaudeMode.chat),
+    );
 
 final visionProvider =
-    NotifierProvider<ConversationController, ConversationState>(() => ConversationController(ClaudeMode.vision));
+    NotifierProvider<ConversationController, ConversationState>(
+      () => ConversationController(ClaudeMode.vision),
+    );

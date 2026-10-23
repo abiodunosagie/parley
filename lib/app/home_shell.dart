@@ -1,3 +1,7 @@
+// FILE: app/home_shell.dart
+// The bottom tab bar that holds the four features: Chat, Look, Extract, Tasks.
+// Shown only when someone is signed in (see auth_gate.dart).
+
 import 'package:flutter/material.dart';
 
 import '../features/agent/agent_screen.dart';
@@ -22,16 +26,36 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       body: IndexedStack(
         index: _tab,
-        children: const [ChatScreen(), VisionScreen(), ExtractScreen(), AgentScreen()],
+        children: const [
+          ChatScreen(),
+          VisionScreen(),
+          ExtractScreen(),
+          AgentScreen(),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: 'Chat'),
-          NavigationDestination(icon: Icon(Icons.photo_camera_outlined), selectedIcon: Icon(Icons.photo_camera), label: 'Look'),
-          NavigationDestination(icon: Icon(Icons.data_object), label: 'Extract'),
-          NavigationDestination(icon: Icon(Icons.checklist_outlined), selectedIcon: Icon(Icons.checklist), label: 'Tasks'),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: 'Chat',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.photo_camera_outlined),
+            selectedIcon: Icon(Icons.photo_camera),
+            label: 'Look',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.data_object),
+            label: 'Extract',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.checklist_outlined),
+            selectedIcon: Icon(Icons.checklist),
+            label: 'Tasks',
+          ),
         ],
       ),
     );

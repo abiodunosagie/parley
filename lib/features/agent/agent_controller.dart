@@ -1,3 +1,11 @@
+// FILE: features/agent/agent_controller.dart
+// FEATURE 4 LOGIC: tool use, the agent loop. The heart of "Claude runs the app":
+//   1. Send the conversation to Claude (mode "agent").
+//   2. If the reply contains tool_use blocks, run each one with ToolExecutor.
+//   3. Send all results back in one message.
+//   4. Repeat until Claude answers in plain text (at most 8 rounds).
+// If anything fails, the conversation is rolled back to before your message so it stays valid.
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,7 +38,12 @@ class ToolRan extends AgentItem {
 
 @immutable
 class AgentState {
-  const AgentState({this.items = const [], this.busy = false, this.notice, this.model});
+  const AgentState({
+    this.items = const [],
+    this.busy = false,
+    this.notice,
+    this.model,
+  });
   final List<AgentItem> items;
   final bool busy;
   final String? notice;
@@ -77,7 +90,11 @@ class AgentController extends Notifier<AgentState> {
     // assistant reply: a dangling tool_use or an empty turn would make every later send fail.
     final rollbackTo = _transcript.length;
     _transcript.add({'role': 'user', 'content': text});
-    state = AgentState(items: [...state.items, UserSaid(text)], busy: true, model: model);
+    state = AgentState(
+      items: [...state.items, UserSaid(text)],
+      busy: true,
+      model: model,
+    );
 
     final executor = ToolExecutor(_PhoneActions(ref));
     String? notice;
@@ -93,7 +110,9 @@ class AgentController extends Notifier<AgentState> {
         }
       }
       if (!clean && notice == null) {
-        notice = token.isCancelled ? 'Stopped.' : 'Claude used too many steps. Try a simpler request.';
+        notice = token.isCancelled
+            ? 'Stopped.'
+            : 'Claude used too many steps. Try a simpler request.';
       }
     } catch (e) {
       notice = noticeFor(e, cancelled: token.isCancelled, tag: 'agent');
@@ -103,7 +122,8 @@ class AgentController extends Notifier<AgentState> {
     _current = null;
     if (!clean) _transcript.removeRange(rollbackTo, _transcript.length);
     if (switched && notice == null) {
-      notice = 'This conversation stays on ${model.label}. Start a new one to use another model.';
+      notice =
+          'This conversation stays on ${model.label}. Start a new one to use another model.';
     }
     state = AgentState(items: state.items, notice: notice, model: model);
   }
@@ -115,7 +135,9 @@ class AgentController extends Notifier<AgentState> {
     CancelToken token,
     bool Function() stillMine,
   ) async {
-    final reply = await ref.read(claudeApiProvider).request(
+    final reply = await ref
+        .read(claudeApiProvider)
+        .request(
           mode: ClaudeMode.agent,
           model: model,
           messages: List.of(_transcript),
@@ -128,10 +150,15 @@ class AgentController extends Notifier<AgentState> {
         if (b is Map) Map<String, dynamic>.from(b),
     ];
     final stopReason = reply['stop_reason'] as String?;
-    final toolCalls = [for (final b in content) if (b['type'] == 'tool_use') b];
+    final toolCalls = [
+      for (final b in content)
+        if (b['type'] == 'tool_use') b,
+    ];
 
     for (final block in content) {
-      final said = block['type'] == 'text' ? (block['text'] as String? ?? '').trim() : '';
+      final said = block['type'] == 'text'
+          ? (block['text'] as String? ?? '').trim()
+          : '';
       if (said.isNotEmpty) _show(ClaudeSaid(said));
     }
 
@@ -139,7 +166,13 @@ class AgentController extends Notifier<AgentState> {
       // Only a non-empty answer with no pending tool call is safe to keep in the transcript.
       final clean = content.isNotEmpty && toolCalls.isEmpty;
       if (clean) _transcript.add({'role': 'assistant', 'content': content});
-      return (finished: true, clean: clean, notice: stopReasonNote(stopReason) ?? (clean ? null : 'Claude did not finish. Try again.'));
+      return (
+        finished: true,
+        clean: clean,
+        notice:
+            stopReasonNote(stopReason) ??
+            (clean ? null : 'Claude did not finish. Try again.'),
+      );
     }
 
     _transcript.add({'role': 'assistant', 'content': content});
@@ -163,8 +196,11 @@ class AgentController extends Notifier<AgentState> {
     return (finished: false, clean: false, notice: null);
   }
 
-  void _show(AgentItem item) =>
-      state = AgentState(items: [...state.items, item], busy: true, model: state.model);
+  void _show(AgentItem item) => state = AgentState(
+    items: [...state.items, item],
+    busy: true,
+    model: state.model,
+  );
 }
 
 /// The real phone: tasks in SharedPreferences, reminders as local notifications.
@@ -178,18 +214,27 @@ class _PhoneActions implements ToolActions {
   Future<List<Task>> tasks() => _store.current();
 
   @override
-  Future<Task> addTask({required String title, required String dueDate, required String priority}) =>
-      _store.add(title: title, dueDate: dueDate, priority: priority);
+  Future<Task> addTask({
+    required String title,
+    required String dueDate,
+    required String priority,
+  }) => _store.add(title: title, dueDate: dueDate, priority: priority);
 
   @override
   Future<Task?> completeTask(String id) => _store.setDone(id);
 
   @override
-  Future<bool> scheduleReminder({required String text, required int minutesFromNow}) =>
-      ref.read(remindersProvider).schedule(text: text, minutesFromNow: minutesFromNow);
+  Future<bool> scheduleReminder({
+    required String text,
+    required int minutesFromNow,
+  }) => ref
+      .read(remindersProvider)
+      .schedule(text: text, minutesFromNow: minutesFromNow);
 
   @override
   DateTime now() => DateTime.now();
 }
 
-final agentProvider = NotifierProvider<AgentController, AgentState>(AgentController.new);
+final agentProvider = NotifierProvider<AgentController, AgentState>(
+  AgentController.new,
+);

@@ -1,3 +1,7 @@
+// FILE: features/agent/agent_screen.dart
+// FEATURE 4 SCREEN: your task list on top, the conversation below. Each lightning line
+// in the conversation is a tool Claude chose to call.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -45,6 +49,8 @@ class AgentScreen extends ConsumerWidget {
           Expanded(
             child: state.items.isEmpty
                 ? ListView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.all(16),
                     children: [
                       const ScreenIntro(
@@ -55,13 +61,20 @@ class AgentScreen extends ConsumerWidget {
                     ],
                   )
                 : ListView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     children: [for (final item in state.items) _ItemView(item)],
                   ),
           ),
           if (state.busy) const LinearProgressIndicator(minHeight: 2),
           if (state.notice != null) Notice(state.notice!),
-          Composer(busy: state.busy, onSend: agent.send, onStop: agent.stop, hint: 'Ask Parley to manage tasks'),
+          Composer(
+            busy: state.busy,
+            onSend: agent.send,
+            onStop: agent.stop,
+            hint: 'Ask Parley to manage tasks',
+          ),
         ],
       ),
     );
@@ -78,13 +91,19 @@ class _TaskPanel extends ConsumerWidget {
     final store = ref.read(taskStoreProvider.notifier);
     return Container(
       constraints: const BoxConstraints(maxHeight: 210),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: colors.line))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.line)),
+      ),
       child: tasks.isEmpty
           ? Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('No tasks yet. Ask Parley to add one.', style: TextStyle(color: colors.muted)),
+              child: Text(
+                'No tasks yet. Ask Parley to add one.',
+                style: TextStyle(color: colors.muted),
+              ),
             )
           : ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               shrinkWrap: true,
               padding: const EdgeInsets.symmetric(vertical: 4),
               children: [
@@ -97,7 +116,10 @@ class _TaskPanel extends ConsumerWidget {
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.only(right: 16),
                       color: colors.danger,
-                      child: Icon(Icons.delete_outline, color: colors.background),
+                      child: Icon(
+                        Icons.delete_outline,
+                        color: colors.background,
+                      ),
                     ),
                     child: CheckboxListTile(
                       dense: true,
@@ -106,10 +128,19 @@ class _TaskPanel extends ConsumerWidget {
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(
                         t.title,
-                        style: TextStyle(decoration: t.done ? TextDecoration.lineThrough : null, color: colors.ink),
+                        style: TextStyle(
+                          decoration: t.done
+                              ? TextDecoration.lineThrough
+                              : null,
+                          color: colors.ink,
+                        ),
                       ),
                       subtitle: Text(
-                        [if (t.dueDate.isNotEmpty) t.dueDate, '${t.priority} priority', 'id ${t.id}'].join(' · '),
+                        [
+                          if (t.dueDate.isNotEmpty) t.dueDate,
+                          '${t.priority} priority',
+                          'id ${t.id}',
+                        ].join(' · '),
                         style: TextStyle(color: colors.muted, fontSize: 12),
                       ),
                     ),
@@ -128,25 +159,37 @@ class _ItemView extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     return switch (item) {
-      UserSaid(:final text) => UserBubble(child: Text(text, style: Theme.of(context).textTheme.bodyLarge)),
+      UserSaid(:final text) => UserBubble(
+        child: Text(text, style: Theme.of(context).textTheme.bodyLarge),
+      ),
       ClaudeSaid(:final text) => Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: Text(text, style: Theme.of(context).textTheme.bodyLarge),
-        ),
+        padding: const EdgeInsets.only(top: 12),
+        child: Text(text, style: Theme.of(context).textTheme.bodyLarge),
+      ),
       ToolRan(:final summary, :final isError) => Padding(
-          padding: const EdgeInsets.only(top: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(isError ? Icons.error_outline : Icons.bolt, size: 18, color: isError ? colors.danger : colors.accent),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(summary,
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 13, color: isError ? colors.danger : colors.muted)),
+        padding: const EdgeInsets.only(top: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.bolt,
+              size: 18,
+              color: isError ? colors.danger : colors.accent,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                summary,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  color: isError ? colors.danger : colors.muted,
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
     };
   }
 }

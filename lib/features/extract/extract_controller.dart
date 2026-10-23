@@ -1,3 +1,7 @@
+// FILE: features/extract/extract_controller.dart
+// FEATURE 3 LOGIC: structured output. One request, one JSON object back
+// ({fields, stop_reason}), turned into a JobPost.
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,11 +32,17 @@ class ExtractController extends Notifier<ExtractState> {
     state = const ExtractState(busy: true);
     final cancel = _cancel = CancelToken();
     try {
-      final json = await ref.read(claudeApiProvider).request(
+      final json = await ref
+          .read(claudeApiProvider)
+          .request(
             mode: ClaudeMode.extract,
             model: ref.read(selectedModelProvider),
             messages: [
-              {'role': 'user', 'content': 'Extract the job post fields from this text:\n\n$input'},
+              {
+                'role': 'user',
+                'content':
+                    'Extract the job post fields from this text:\n\n$input',
+              },
             ],
             cancel: cancel,
           );
@@ -40,11 +50,21 @@ class ExtractController extends Notifier<ExtractState> {
       final fields = json['fields'];
       state = fields is Map<String, dynamic>
           ? ExtractState(result: JobPost.fromJson(fields))
-          : ExtractState(notice: stopReasonNote(json['stop_reason'] as String?) ?? 'No fields came back. Try again.');
+          : ExtractState(
+              notice:
+                  stopReasonNote(json['stop_reason'] as String?) ??
+                  'No fields came back. Try again.',
+            );
     } catch (e) {
-      if (ref.mounted) state = ExtractState(notice: noticeFor(e, cancelled: cancel.isCancelled, tag: 'extract'));
+      if (ref.mounted) {
+        state = ExtractState(
+          notice: noticeFor(e, cancelled: cancel.isCancelled, tag: 'extract'),
+        );
+      }
     }
   }
 }
 
-final extractProvider = NotifierProvider<ExtractController, ExtractState>(ExtractController.new);
+final extractProvider = NotifierProvider<ExtractController, ExtractState>(
+  ExtractController.new,
+);

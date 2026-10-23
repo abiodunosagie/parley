@@ -1,3 +1,7 @@
+// FILE: features/agent/task_store.dart
+// The task list the agent manages, saved on the phone (SharedPreferences), one list
+// per signed-in account.
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -9,7 +13,13 @@ import '../auth/auth_controller.dart';
 
 @immutable
 class Task {
-  const Task({required this.id, required this.title, required this.dueDate, required this.priority, this.done = false});
+  const Task({
+    required this.id,
+    required this.title,
+    required this.dueDate,
+    required this.priority,
+    this.done = false,
+  });
 
   final String id;
   final String title;
@@ -19,17 +29,29 @@ class Task {
   final String priority;
   final bool done;
 
-  Task copyWith({bool? done}) => Task(id: id, title: title, dueDate: dueDate, priority: priority, done: done ?? this.done);
+  Task copyWith({bool? done}) => Task(
+    id: id,
+    title: title,
+    dueDate: dueDate,
+    priority: priority,
+    done: done ?? this.done,
+  );
 
-  Map<String, dynamic> toJson() => {'id': id, 'title': title, 'due_date': dueDate, 'priority': priority, 'done': done};
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'due_date': dueDate,
+    'priority': priority,
+    'done': done,
+  };
 
   factory Task.fromJson(Map<String, dynamic> json) => Task(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        dueDate: json['due_date'] as String? ?? '',
-        priority: json['priority'] as String? ?? 'medium',
-        done: json['done'] as bool? ?? false,
-      );
+    id: json['id'] as String,
+    title: json['title'] as String,
+    dueDate: json['due_date'] as String? ?? '',
+    priority: json['priority'] as String? ?? 'medium',
+    done: json['done'] as bool? ?? false,
+  );
 }
 
 /// The task list Claude manages through tools. It lives on the phone (SharedPreferences), one
@@ -63,7 +85,10 @@ class TaskStore extends Notifier<List<Task>> {
     final raw = (await SharedPreferences.getInstance()).getString(key);
     if (raw == null || !ref.mounted) return;
     try {
-      state = [for (final t in jsonDecode(raw) as List) Task.fromJson(t as Map<String, dynamic>)];
+      state = [
+        for (final t in jsonDecode(raw) as List)
+          Task.fromJson(t as Map<String, dynamic>),
+      ];
     } catch (e) {
       // A corrupt saved list starts fresh instead of breaking every later task call.
       debugPrint('Parley: saved tasks unreadable, starting empty ($e)');
@@ -83,12 +108,23 @@ class TaskStore extends Notifier<List<Task>> {
     final key = _key;
     if (key == null) return Future.value();
     final json = jsonEncode([for (final t in state) t.toJson()]);
-    return _saving = _saving.then((_) async => (await SharedPreferences.getInstance()).setString(key, json));
+    return _saving = _saving.then(
+      (_) async => (await SharedPreferences.getInstance()).setString(key, json),
+    );
   }
 
-  Future<Task> add({required String title, required String dueDate, required String priority}) async {
+  Future<Task> add({
+    required String title,
+    required String dueDate,
+    required String priority,
+  }) async {
     await _loaded;
-    final task = Task(id: _uuid.v4().substring(0, _idLength), title: title, dueDate: dueDate, priority: priority);
+    final task = Task(
+      id: _uuid.v4().substring(0, _idLength),
+      title: title,
+      dueDate: dueDate,
+      priority: priority,
+    );
     state = [...state, task];
     await _save();
     return task;
@@ -108,9 +144,14 @@ class TaskStore extends Notifier<List<Task>> {
 
   Future<void> remove(String id) async {
     await _loaded;
-    state = [for (final t in state) if (t.id != id) t];
+    state = [
+      for (final t in state)
+        if (t.id != id) t,
+    ];
     await _save();
   }
 }
 
-final taskStoreProvider = NotifierProvider<TaskStore, List<Task>>(TaskStore.new);
+final taskStoreProvider = NotifierProvider<TaskStore, List<Task>>(
+  TaskStore.new,
+);

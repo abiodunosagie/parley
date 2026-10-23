@@ -1,3 +1,10 @@
+// FILE: main.dart
+// START HERE. The app's entry point.
+// Reads the Supabase settings (lib/core/env.dart), connects to Supabase, then shows AuthGate,
+// which decides between the sign-in screen and the four tabs. Also closes the keyboard when you
+// tap outside a text field, on every screen.
+// Read next: lib/features/auth/auth_gate.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,7 +20,10 @@ Future<void> main() async {
     runApp(const _MissingConfig());
     return;
   }
-  await Supabase.initialize(url: Env.supabaseUrl, publishableKey: Env.supabasePublishableKey);
+  await Supabase.initialize(
+    url: Env.supabaseUrl,
+    publishableKey: Env.supabasePublishableKey,
+  );
   runApp(const ProviderScope(child: ParleyApp()));
 }
 
@@ -27,6 +37,13 @@ class ParleyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: parleyTheme(Brightness.light),
       darkTheme: parleyTheme(Brightness.dark),
+      // Tapping anywhere that is not a text field closes the keyboard, on every screen. Without
+      // this the keyboard stays up over the chat until the user finds a way to close it.
+      builder: (context, child) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: child,
+      ),
       home: const AuthGate(),
     );
   }

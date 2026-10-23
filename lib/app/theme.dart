@@ -1,3 +1,8 @@
+// FILE: app/theme.dart
+// Colours, text styles and button shapes for light and dark mode.
+// Screens never hard-code a colour: they call `context.colors.accent`, `context.colors.ink`, and so
+// on. Change a colour here and the whole app follows.
+
 import 'package:flutter/material.dart';
 
 /// Corner radius for every box, button and bubble. Rounded, never a pill.
@@ -64,18 +69,17 @@ class ParleyColors extends ThemeExtension<ParleyColors> {
     Color? onAccent,
     Color? accentSoft,
     Color? danger,
-  }) =>
-      ParleyColors(
-        background: background ?? this.background,
-        ink: ink ?? this.ink,
-        muted: muted ?? this.muted,
-        line: line ?? this.line,
-        userBubble: userBubble ?? this.userBubble,
-        accent: accent ?? this.accent,
-        onAccent: onAccent ?? this.onAccent,
-        accentSoft: accentSoft ?? this.accentSoft,
-        danger: danger ?? this.danger,
-      );
+  }) => ParleyColors(
+    background: background ?? this.background,
+    ink: ink ?? this.ink,
+    muted: muted ?? this.muted,
+    line: line ?? this.line,
+    userBubble: userBubble ?? this.userBubble,
+    accent: accent ?? this.accent,
+    onAccent: onAccent ?? this.onAccent,
+    accentSoft: accentSoft ?? this.accentSoft,
+    danger: danger ?? this.danger,
+  );
 
   @override
   ParleyColors lerp(ParleyColors? other, double t) {
@@ -100,7 +104,9 @@ extension ParleyColorsX on BuildContext {
 }
 
 ThemeData parleyTheme(Brightness brightness) {
-  final c = brightness == Brightness.light ? ParleyColors.light : ParleyColors.dark;
+  final c = brightness == Brightness.light
+      ? ParleyColors.light
+      : ParleyColors.dark;
   final scheme = ColorScheme.fromSeed(
     seedColor: c.accent,
     brightness: brightness,
@@ -118,10 +124,20 @@ ThemeData parleyTheme(Brightness brightness) {
     extensions: [c],
     dividerColor: c.line,
     textTheme: TextTheme(
-      headlineSmall: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.7, color: c.ink),
+      headlineSmall: TextStyle(
+        fontSize: 26,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.7,
+        color: c.ink,
+      ),
       bodyLarge: TextStyle(fontSize: 16, height: 1.45, color: c.ink),
       bodyMedium: TextStyle(fontSize: 15, height: 1.4, color: c.muted),
-      labelSmall: TextStyle(fontSize: 11, letterSpacing: 0.8, fontWeight: FontWeight.w700, color: c.muted),
+      labelSmall: TextStyle(
+        fontSize: 11,
+        letterSpacing: 0.8,
+        fontWeight: FontWeight.w700,
+        color: c.muted,
+      ),
     ),
     appBarTheme: AppBarTheme(
       backgroundColor: c.background,
@@ -129,18 +145,28 @@ ThemeData parleyTheme(Brightness brightness) {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(color: c.ink, fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.4),
+      titleTextStyle: TextStyle(
+        color: c.ink,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.4,
+      ),
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: c.background,
       indicatorColor: c.accentSoft,
       surfaceTintColor: Colors.transparent,
-      labelTextStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12, color: c.ink)),
+      labelTextStyle: WidgetStatePropertyAll(
+        TextStyle(fontSize: 12, color: c.ink),
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: c.userBubble,
-      border: const OutlineInputBorder(borderRadius: kRadius, borderSide: BorderSide.none),
+      border: const OutlineInputBorder(
+        borderRadius: kRadius,
+        borderSide: BorderSide.none,
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       hintStyle: TextStyle(color: c.muted),
     ),

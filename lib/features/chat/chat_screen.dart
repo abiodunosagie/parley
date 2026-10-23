@@ -1,3 +1,7 @@
+// FILE: features/chat/chat_screen.dart
+// FEATURE 1 SCREEN: streaming chat. Shows example prompts when empty, the conversation
+// otherwise, and the composer at the bottom. All logic is in conversation.dart (chatProvider).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,6 +45,8 @@ class ChatScreen extends ConsumerWidget {
           Expanded(
             child: state.messages.isEmpty
                 ? ListView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.all(16),
                     children: [
                       const ScreenIntro(

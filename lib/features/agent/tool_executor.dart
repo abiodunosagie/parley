@@ -1,3 +1,8 @@
+// FILE: features/agent/tool_executor.dart
+// Runs the tools Claude asks for: list_tasks, add_task, complete_task, set_reminder.
+// Claude never touches the phone itself. It asks ("call add_task with title Milk"), this file
+// checks the input and does it, and the result goes back to Claude as text.
+
 import 'dart:convert';
 
 import 'task_store.dart';
@@ -6,15 +11,26 @@ import 'task_store.dart';
 /// pass a fake, so tool behaviour is checked without a device.
 abstract interface class ToolActions {
   Future<List<Task>> tasks();
-  Future<Task> addTask({required String title, required String dueDate, required String priority});
+  Future<Task> addTask({
+    required String title,
+    required String dueDate,
+    required String priority,
+  });
   Future<Task?> completeTask(String id);
-  Future<bool> scheduleReminder({required String text, required int minutesFromNow});
+  Future<bool> scheduleReminder({
+    required String text,
+    required int minutesFromNow,
+  });
   DateTime now();
 }
 
 /// The result sent back to Claude as a tool_result block, plus a line for the screen.
 class ToolOutcome {
-  const ToolOutcome({required this.content, required this.summary, this.isError = false});
+  const ToolOutcome({
+    required this.content,
+    required this.summary,
+    this.isError = false,
+  });
   final String content;
   final String summary;
   final bool isError;
@@ -33,7 +49,10 @@ class ToolExecutor {
         final tasks = await actions.tasks();
         final today = actions.now().toIso8601String().substring(0, 10);
         return ToolOutcome(
-          content: jsonEncode({'today': today, 'tasks': [for (final t in tasks) t.toJson()]}),
+          content: jsonEncode({
+            'today': today,
+            'tasks': [for (final t in tasks) t.toJson()],
+          }),
           summary: 'Read ${tasks.length} task${tasks.length == 1 ? '' : 's'}',
         );
 
@@ -42,9 +61,17 @@ class ToolExecutor {
         final due = (input['due_date'] as String? ?? '').trim();
         final priority = input['priority'] as String? ?? 'medium';
         if (title.isEmpty) return _error('add_task needs a title.');
-        if (due.isNotEmpty && DateTime.tryParse(due) == null) return _error('due_date must be YYYY-MM-DD.');
-        if (!const {'low', 'medium', 'high'}.contains(priority)) return _error('priority must be low, medium or high.');
-        final task = await actions.addTask(title: title, dueDate: due, priority: priority);
+        if (due.isNotEmpty && DateTime.tryParse(due) == null) {
+          return _error('due_date must be YYYY-MM-DD.');
+        }
+        if (!const {'low', 'medium', 'high'}.contains(priority)) {
+          return _error('priority must be low, medium or high.');
+        }
+        final task = await actions.addTask(
+          title: title,
+          dueDate: due,
+          priority: priority,
+        );
         return ToolOutcome(
           content: jsonEncode({'added': task.toJson()}),
           summary: 'Added "${task.title}"${due.isEmpty ? '' : ' for $due'}',
@@ -53,18 +80,32 @@ class ToolExecutor {
       case 'complete_task':
         final id = input['task_id'] as String? ?? '';
         final task = await actions.completeTask(id);
-        if (task == null) return _error('No task has id "$id". Call list_tasks for the ids.');
-        return ToolOutcome(content: jsonEncode({'completed': task.toJson()}), summary: 'Completed "${task.title}"');
+        if (task == null) {
+          return _error('No task has id "$id". Call list_tasks for the ids.');
+        }
+        return ToolOutcome(
+          content: jsonEncode({'completed': task.toJson()}),
+          summary: 'Completed "${task.title}"',
+        );
 
       case 'set_reminder':
         final text = (input['text'] as String? ?? '').trim();
         final minutes = input['minutes_from_now'];
         if (text.isEmpty) return _error('set_reminder needs text.');
         if (minutes is! int || minutes < 1 || minutes > 10080) {
-          return _error('minutes_from_now must be a whole number from 1 to 10080.');
+          return _error(
+            'minutes_from_now must be a whole number from 1 to 10080.',
+          );
         }
-        final scheduled = await actions.scheduleReminder(text: text, minutesFromNow: minutes);
-        if (!scheduled) return _error('The user has not allowed notifications, so no reminder was set.');
+        final scheduled = await actions.scheduleReminder(
+          text: text,
+          minutesFromNow: minutes,
+        );
+        if (!scheduled) {
+          return _error(
+            'The user has not allowed notifications, so no reminder was set.',
+          );
+        }
         return ToolOutcome(
           content: jsonEncode({'scheduled_in_minutes': minutes, 'text': text}),
           summary: 'Reminder in $minutes min: "$text"',
@@ -75,5 +116,6 @@ class ToolExecutor {
     }
   }
 
-  ToolOutcome _error(String message) => ToolOutcome(content: message, summary: message, isError: true);
+  ToolOutcome _error(String message) =>
+      ToolOutcome(content: message, summary: message, isError: true);
 }

@@ -1,3 +1,7 @@
+// FILE: core/claude_models.dart
+// The three Claude models you can pick in the app bar, and the provider that remembers
+// which one is selected. Every feature reads `selectedModelProvider` when it sends a request.
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The three Claude models the server allows. The ids must match `MODELS` in
@@ -15,7 +19,9 @@ enum ClaudeModel {
 }
 
 /// The model every feature uses, picked from the app bar.
-final selectedModelProvider = NotifierProvider<SelectedModel, ClaudeModel>(SelectedModel.new);
+final selectedModelProvider = NotifierProvider<SelectedModel, ClaudeModel>(
+  SelectedModel.new,
+);
 
 class SelectedModel extends Notifier<ClaudeModel> {
   @override

@@ -1,3 +1,7 @@
+// FILE: shared/composer.dart
+// The message box at the bottom of chat screens. While Claude is replying, the send
+// button turns into a Stop button that cancels the request.
+
 import 'package:flutter/material.dart';
 
 import '../app/theme.dart';
@@ -39,7 +43,8 @@ class _ComposerState extends State<Composer> {
   }
 
   // Stop shows ink-on-background, send shows the accent pair.
-  Color _iconColor(ParleyColors colors) => widget.busy ? colors.background : colors.onAccent;
+  Color _iconColor(ParleyColors colors) =>
+      widget.busy ? colors.background : colors.onAccent;
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +76,9 @@ class _ComposerState extends State<Composer> {
                   foregroundColor: _iconColor(colors),
                   shape: const RoundedRectangleBorder(borderRadius: kRadius),
                 ),
-                icon: Icon(widget.busy ? Icons.stop_rounded : Icons.arrow_upward_rounded),
+                icon: Icon(
+                  widget.busy ? Icons.stop_rounded : Icons.arrow_upward_rounded,
+                ),
               ),
             ),
           ],

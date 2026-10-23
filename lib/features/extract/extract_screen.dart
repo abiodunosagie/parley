@@ -1,3 +1,6 @@
+// FILE: features/extract/extract_screen.dart
+// FEATURE 3 SCREEN: paste a job post, tap Extract, see the clean fields.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -34,8 +37,12 @@ Comp: EUR 55k to 70k + equity. 3+ years shipping mobile apps. Applications close
     final state = ref.watch(extractProvider);
     final controller = ref.read(extractProvider.notifier);
     return Scaffold(
-      appBar: AppBar(title: const Text('Extract'), actions: const [ModelPickerButton(), AccountButton()]),
+      appBar: AppBar(
+        title: const Text('Extract'),
+        actions: const [ModelPickerButton(), AccountButton()],
+      ),
       body: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.all(16),
         children: [
           const ScreenIntro(
@@ -46,7 +53,9 @@ Comp: EUR 55k to 70k + equity. 3+ years shipping mobile apps. Applications close
             controller: _input,
             minLines: 6,
             maxLines: 14,
-            decoration: const InputDecoration(hintText: 'Paste a job post here'),
+            decoration: const InputDecoration(
+              hintText: 'Paste a job post here',
+            ),
           ),
           const SizedBox(height: 8),
           Align(
@@ -60,12 +69,21 @@ Comp: EUR 55k to 70k + equity. 3+ years shipping mobile apps. Applications close
           state.busy
               ? OutlinedButton.icon(
                   onPressed: controller.cancel,
-                  icon: const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                  icon: const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                   label: const Text('Reading... tap to stop'),
                 )
-              : FilledButton(onPressed: () => controller.extract(_input.text), child: const Text('Extract fields')),
+              : FilledButton(
+                  onPressed: () => controller.extract(_input.text),
+                  child: const Text('Extract fields'),
+                ),
           if (state.notice != null) Notice(state.notice!),
-          if (state.result != null) ...[const SizedBox(height: 20), _Fields(state.result!)],
+          if (state.result != null) ...[
+            const SizedBox(height: 20),
+            _Fields(state.result!),
+          ],
         ],
       ),
     );
@@ -109,13 +127,21 @@ class _Row extends StatelessWidget {
     final colors = context.colors;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: colors.line))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.line)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label.toUpperCase(), style: Theme.of(context).textTheme.labelSmall),
+          Text(
+            label.toUpperCase(),
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
           const SizedBox(height: 4),
-          SelectableText(value.isEmpty ? JobPost.enumLabel('') : value, style: Theme.of(context).textTheme.bodyLarge),
+          SelectableText(
+            value.isEmpty ? JobPost.enumLabel('') : value,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
         ],
       ),
     );

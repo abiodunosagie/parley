@@ -1,3 +1,7 @@
+// FILE: features/auth/auth_screen.dart
+// The sign-in / create-account form. One form, two modes, switched by the second
+// button.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,7 +34,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   void _submit() {
     if (!(_form.currentState?.validate() ?? false)) return;
     final auth = ref.read(authControllerProvider.notifier);
-    _creating ? auth.signUp(_email.text, _password.text) : auth.signIn(_email.text, _password.text);
+    _creating
+        ? auth.signUp(_email.text, _password.text)
+        : auth.signIn(_email.text, _password.text);
   }
 
   @override
@@ -43,9 +49,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         child: Form(
           key: _form,
           child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
             children: [
-              Text('Parley', style: TextStyle(color: colors.accent, fontSize: 18, fontWeight: FontWeight.w800)),
+              Text(
+                'Parley',
+                style: TextStyle(
+                  color: colors.accent,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
               ScreenIntro(
                 title: _creating ? 'Create your account.' : 'Welcome back.',
                 body: 'Chat, photos, structured answers and an agent that runs your task list, all powered by Claude.',
@@ -63,7 +77,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               TextFormField(
                 controller: _password,
                 obscureText: _hidden,
-                autofillHints: [_creating ? AutofillHints.newPassword : AutofillHints.password],
+                autofillHints: [
+                  _creating
+                      ? AutofillHints.newPassword
+                      : AutofillHints.password,
+                ],
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
@@ -71,28 +89,48 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   suffixIcon: IconButton(
                     tooltip: _hidden ? 'Show password' : 'Hide password',
                     onPressed: () => setState(() => _hidden = !_hidden),
-                    icon: Icon(_hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                    icon: Icon(
+                      _hidden
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
                   ),
                 ),
-                validator: (v) => _creating ? AuthController.checkPassword(v ?? '') : ((v ?? '').isEmpty ? 'Enter your password.' : null),
+                validator: (v) => _creating
+                    ? AuthController.checkPassword(v ?? '')
+                    : ((v ?? '').isEmpty ? 'Enter your password.' : null),
               ),
-              if (state.error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Notice(state.error!)),
+              if (state.error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Notice(state.error!),
+                ),
               if (state.info != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
-                  child: Text(state.info!, style: Theme.of(context).textTheme.bodyMedium),
+                  child: Text(
+                    state.info!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ),
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: state.busy ? null : _submit,
                 child: state.busy
-                    ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : Text(_creating ? 'Create account' : 'Sign in'),
               ),
               const SizedBox(height: 10),
               OutlinedButton(
-                onPressed: state.busy ? null : () => setState(() => _creating = !_creating),
-                child: Text(_creating ? 'I already have an account' : 'Create an account'),
+                onPressed: state.busy
+                    ? null
+                    : () => setState(() => _creating = !_creating),
+                child: Text(
+                  _creating ? 'I already have an account' : 'Create an account',
+                ),
               ),
             ],
           ),

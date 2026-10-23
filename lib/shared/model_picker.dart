@@ -1,3 +1,7 @@
+// FILE: shared/model_picker.dart
+// The "Opus 5.5" button in the app bar. Opens a sheet to switch between Haiku,
+// Sonnet and Opus. The choice is stored in selectedModelProvider (lib/core/claude_models.dart).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,7 +36,9 @@ class ModelPickerButton extends ConsumerWidget {
             child: RadioGroup<ClaudeModel>(
               groupValue: current,
               onChanged: (model) {
-                if (model != null) ref.read(selectedModelProvider.notifier).select(model);
+                if (model != null) {
+                  ref.read(selectedModelProvider.notifier).select(model);
+                }
                 Navigator.pop(sheetContext);
               },
               child: Column(
