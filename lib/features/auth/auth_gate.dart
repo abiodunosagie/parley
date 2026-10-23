@@ -31,6 +31,9 @@ class AuthGate extends ConsumerWidget {
 
     final user = ref.watch(currentUserProvider);
     return user.when(
+      // A refresh that fails offline puts an error on the auth stream; keep showing the last
+      // known user instead of throwing someone back to the sign-in screen.
+      skipError: true,
       data: (user) => user == null ? const AuthScreen() : const HomeShell(),
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),

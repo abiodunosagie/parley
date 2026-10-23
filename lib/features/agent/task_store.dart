@@ -113,12 +113,22 @@ class TaskStore extends Notifier<List<Task>> {
     );
   }
 
+  /// Waits for the saved list, then checks the signed-in account did not change meanwhile, so
+  /// a change started under one account can never be saved into another account's list.
+  Future<void> _ready() async {
+    final key = _key;
+    await _loaded;
+    if (!ref.mounted || key != _key) {
+      throw StateError('The account changed while saving a task.');
+    }
+  }
+
   Future<Task> add({
     required String title,
     required String dueDate,
     required String priority,
   }) async {
-    await _loaded;
+    await _ready();
     final task = Task(
       id: _uuid.v4().substring(0, _idLength),
       title: title,
@@ -132,7 +142,7 @@ class TaskStore extends Notifier<List<Task>> {
 
   /// Returns the task that changed, or null when no task has that id.
   Future<Task?> setDone(String id, {bool done = true}) async {
-    await _loaded;
+    await _ready();
     Task? changed;
     state = [
       for (final t in state)
@@ -143,7 +153,7 @@ class TaskStore extends Notifier<List<Task>> {
   }
 
   Future<void> remove(String id) async {
-    await _loaded;
+    await _ready();
     state = [
       for (final t in state)
         if (t.id != id) t,

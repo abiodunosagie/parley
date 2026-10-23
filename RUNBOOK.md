@@ -17,8 +17,8 @@ Flutter app (lib/)                     Supabase project                         
 - The Claude key is a Supabase secret named `ANTHROPIC_API_KEY`. It never ships in the app.
 - Every call is logged in `public.claude_requests`. One locked database function
   (`claim_claude_request`) checks the limits and records the call in a single step: 20 requests a
-  minute, 200 a day and 400k tokens a day per user, 400 a day per network, and 2000 requests or
-  4M tokens a day for the whole project (`supabase/functions/claude/config.ts`).
+  minute, 200 a day and 150k tokens a day per user, 400 a day per network, and 2000 requests or
+  1M tokens a day for the whole project (`supabase/functions/claude/config.ts`).
 - Accounts are Supabase email and password. Email confirmation is off, because Supabase's built-in
   mailer only sends a few emails an hour; add your own SMTP (for example Resend) before turning it on.
 - Settings > Delete account calls `delete-account`, which deletes the user and their usage rows.

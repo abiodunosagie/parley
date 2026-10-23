@@ -177,7 +177,13 @@ Future<String> supabaseAccessToken({bool fresh = false}) async {
   if (fresh || session.isExpired) {
     try {
       session = (await auth.refreshSession()).session;
+    } on AuthRetryableFetchException {
+      // Offline or a server blip: keep the session and let the user try again.
+      throw const ClaudeApiException(
+        'No connection. Check your internet and try again.',
+      );
     } on AuthException {
+      // The refresh token itself was refused, so this session is over for good.
       await auth.signOut(scope: SignOutScope.local);
       throw const ClaudeApiException('Your session ended. Sign in again.');
     }

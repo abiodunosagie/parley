@@ -34,14 +34,15 @@ export const EFFORT: Record<Mode, "low" | "medium"> = {
 export const LIMITS = {
   perUserPerMinute: 20,
   perUserPerDay: 200,
-  // Anonymous sign-in means anyone can make new users, so one network (hashed IP) has its own
-  // ceiling, and the whole project has a final one.
+  // Anyone can create an account, so one network (hashed IP) has its own ceiling, and the
+  // whole project has a final one.
   perIpPerDay: 400,
   projectPerDay: 2000,
   // Request counts alone would let someone send only the most expensive calls, so input plus
   // output tokens are capped per day as well.
-  userTokensPerDay: 400_000,
-  projectTokensPerDay: 4_000_000,
+  userTokensPerDay: 150_000,
+  // About $20 a day at worst on Opus (all output), a fifth of the $100 starter credit.
+  projectTokensPerDay: 1_000_000,
   maxMessages: 60,
   maxTextChars: 120_000,
   // Base64 characters for one image, about 2.6 MB of image bytes. The app resizes to 1568 px

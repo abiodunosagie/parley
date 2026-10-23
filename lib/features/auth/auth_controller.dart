@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/claude_api.dart';
 import '../../core/env.dart';
 import '../agent/task_store.dart';
 
@@ -58,26 +59,36 @@ class AuthController extends Notifier<AuthState> {
   Future<void> signOut() => _auth.signOut();
 
   /// Deletes the account and everything stored with it on the server, then signs out.
+  /// Returns an error message, or null when the account is gone.
   Future<String?> deleteAccount() async {
-    final session = _auth.currentSession;
-    if (session == null) return 'You are not signed in.';
+    final userId = _auth.currentUser?.id;
+    if (userId == null) return 'You are not signed in.';
     try {
-      final response = await Supabase.instance.client.functions.invoke(
+      await Supabase.instance.client.functions.invoke(
         'delete-account',
         headers: {
-          'Authorization': 'Bearer ${session.accessToken}',
+          'Authorization': 'Bearer ${await supabaseAccessToken()}',
           'apikey': Env.supabasePublishableKey,
         },
       );
-      if (response.status != 200) {
-        return 'Could not delete the account. Try again.';
-      }
+    } on ClaudeApiException catch (e) {
+      return e.message;
+    } on FunctionException catch (e) {
+      debugPrint('Parley delete-account refused: ${e.status}');
+      return e.status == 401
+          ? 'Your session ended. Sign in again, then delete the account.'
+          : 'Could not delete the account. Try again.';
     } catch (e) {
       debugPrint('Parley delete-account error: $e');
       return 'Could not delete the account. Check your connection and try again.';
     }
-    await TaskStore.forget(session.user.id);
-    await _auth.signOut(scope: SignOutScope.local);
+    // The account is gone. Clean up locally even if the sign-out call cannot reach the server.
+    await TaskStore.forget(userId);
+    try {
+      await _auth.signOut(scope: SignOutScope.local);
+    } catch (e) {
+      debugPrint('Parley local sign-out after delete: $e');
+    }
     return null;
   }
 
@@ -108,7 +119,10 @@ class AuthController extends Notifier<AuthState> {
     'weak_password' => 'Choose a stronger password.',
     'over_request_rate_limit' || 'over_email_send_rate_limit' =>
       'Too many tries. Wait a minute and try again.',
-    _ => e.message,
+    _ =>
+      e is AuthRetryableFetchException
+          ? 'Could not reach the server. Check your connection.'
+          : 'That did not work. Check your details and try again.',
   };
 }
 

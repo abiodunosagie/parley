@@ -79,7 +79,11 @@ class ConversationController extends Notifier<ConversationState> {
   CancelToken? _current;
 
   @override
-  ConversationState build() => const ConversationState();
+  ConversationState build() {
+    // Signing out disposes this controller: stop the running request so it stops spending.
+    ref.onDispose(() => _current?.cancel());
+    return const ConversationState();
+  }
 
   /// A new photo starts a new conversation about it.
   void attachPhoto(Attachment photo) {

@@ -68,7 +68,11 @@ class AgentController extends Notifier<AgentState> {
   CancelToken? _current;
 
   @override
-  AgentState build() => const AgentState();
+  AgentState build() {
+    // Signing out disposes this controller: stop the running request so it stops spending.
+    ref.onDispose(() => _current?.cancel());
+    return const AgentState();
+  }
 
   void stop() => _current?.cancel();
 
