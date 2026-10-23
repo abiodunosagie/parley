@@ -74,11 +74,43 @@ void main() {
     },
   );
 
-  test('the history folder is kept off backups once, before the first save', () async {
-    await store.write('u1', 'chat', summary('a', 1), {});
-    await store.write('u1', 'chat', summary('b', 2), {});
-    expect(excluded, ['${root.path}/history']);
+  test(
+    'the history folder is kept off backups once, before the first save',
+    () async {
+      await store.write('u1', 'chat', summary('a', 1), {});
+      await store.write('u1', 'chat', summary('b', 2), {});
+      expect(excluded, ['${root.path}/history']);
+    },
+  );
+
+  test('saving still works when the backup mark fails', () async {
+    final s = LocalStore(
+      root: () async => root,
+      excludeFromBackup: (_) async => throw StateError('no channel'),
+    );
+    await s.write('u1', 'chat', summary('a', 1), {'n': 1});
+    expect(await s.read('u1', 'chat', 'a'), {'n': 1});
   });
+
+  test(
+    'a folder that failed to set up is tried again, not broken for the session',
+    () async {
+      var calls = 0;
+      final s = LocalStore(
+        root: () async {
+          if (calls++ == 0) throw const FileSystemException('busy');
+          return root;
+        },
+        excludeFromBackup: (_) async {},
+      );
+      await expectLater(
+        s.list('u1', 'chat'),
+        throwsA(isA<FileSystemException>()),
+      );
+      await s.write('u1', 'chat', summary('a', 1), {'n': 1});
+      expect(await s.list('u1', 'chat'), hasLength(1));
+    },
+  );
 
   test('ids that could leave the folder are refused', () async {
     expect(() => store.read('../u2', 'chat', 'a'), throwsArgumentError);

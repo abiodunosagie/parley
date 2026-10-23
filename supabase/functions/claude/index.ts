@@ -152,19 +152,19 @@ async function checkSearchBudget(userId: string) {
 
 // The network the request came from, hashed so no raw IP address is ever stored. Supabase's edge
 // sits behind Cloudflare, which sets CF-Connecting-IP itself and rejects requests that try to
-// send their own, so the header cannot be faked the way the first X-Forwarded-For entry can.
-async function ipHash(request: Request): Promise<string | null> {
-  const ip = request.headers.get("cf-connecting-ip")?.trim() ||
-    request.headers.get("x-forwarded-for")?.split(",").at(-2)?.trim();
-  if (!ip) return null;
-  const salted = new TextEncoder().encode(`${Deno.env.get("SUPABASE_URL")}|${ip}`);
+// send their own (checked live), so it cannot be faked the way X-Forwarded-For can. Without it
+// the request shares one "unknown" bucket, so a missing header limits harder instead of not at all.
+async function ipHash(request: Request): Promise<string> {
+  const ip = request.headers.get("cf-connecting-ip")?.trim();
+  if (!ip) console.warn("request without CF-Connecting-IP; using the shared unknown bucket");
+  const salted = new TextEncoder().encode(`${Deno.env.get("SUPABASE_URL")}|${ip || "unknown"}`);
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", salted));
   return Array.from(digest.slice(0, 16), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // Checks every limit and records the request in one locked database step, so a burst of
 // parallel requests cannot slip past a count. Fails closed: no slot, no Claude call.
-async function claimSlot(userId: string, ip: string | null, req: ClaudeRequest): Promise<number> {
+async function claimSlot(userId: string, ip: string, req: ClaudeRequest): Promise<number> {
   const { data, error } = await admin.rpc("claim_claude_request", {
     p_user: userId,
     p_ip_hash: ip,

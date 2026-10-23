@@ -112,7 +112,8 @@ turns citations on, so the reply streams `source` events with the page and the q
 
 On the server (`supabase/functions/claude/claude.ts`), a long search turn can come back as
 `pause_turn`; the function resumes it by sending the paused turn back, at most twice, and never
-past three searches in total. A `Meter` records what each request spends as the API reports it,
+past three searches in total. The per-network limit hashes `CF-Connecting-IP`, which Cloudflare sets and clients cannot fake.
+A `Meter` records what each request spends as the API reports it,
 and `index.ts` logs it in a `finally`, so a request the app abandons still counts against the
 limits.
 
@@ -142,6 +143,11 @@ AgentLoop.run("Add milk tomorrow")
   round 3: stop_reason "end_turn": "Added milk for tomorrow."
 ```
 
+The transcript only grows by whole steps, and the screen shows exactly those steps. A tool round
+goes in with every result (after Stop, the skipped calls are answered "Not run"), a failed or
+cut-short answer is neither shown nor kept, and your message stays. So the screen, saved history
+and what Claude knows always match.
+
 `AgentController` (presentation) only turns the loop's progress into screen state, including
 Claude's reasoning for each round, and saves the conversation (lines and transcript) so it can be
 reopened and carried on. Account deletion works the same way: the steps live in
@@ -164,6 +170,10 @@ Each feature's history repository is a thin layer over `SavedCollection`
 (`core/storage/saved_collection.dart`). Controllers use the `SavedHistory` mixin
 (`core/state/saved_history.dart`) to open, save and delete, so a storage failure is logged and never
 breaks the screen. Deleting your account deletes the whole `history/<userId>` folder.
+
+History never leaves the phone. On iOS the `history` folder is marked as excluded from iCloud
+backup through the `parley/storage` channel in `ios/Runner/AppDelegate.swift`, the app's only
+native code; Android backups are turned off for the app in its manifest.
 
 ## 5. Voice input
 

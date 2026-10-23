@@ -75,6 +75,12 @@ class _FailsSecond extends _ScriptedClaude {
   }
 }
 
+/// A phone whose task list cannot be read.
+class _Crashes extends _Phone {
+  @override
+  Future<List<Task>> tasks() async => throw StateError('storage gone');
+}
+
 /// A phone where reading the list presses Stop, as if you tapped it mid-round.
 class _StopsOnRead extends _Phone {
   _StopsOnRead(this.cancel);
@@ -243,6 +249,44 @@ void main() {
     final results = l.transcript.last['content'] as List;
     expect([for (final r in results) r['tool_use_id']], ['a', 'b']);
     expect((results[1] as Map)['is_error'], isTrue);
+  });
+
+  test(
+    'a tool that crashes is answered as an error and still logged',
+    () async {
+      final l = AgentLoop(
+        repository: _ScriptedClaude([
+          _reply('tool_use', [
+            {
+              'type': 'tool_use',
+              'id': 'x',
+              'name': 'list_tasks',
+              'input': <String, dynamic>{},
+            },
+          ]),
+          _reply('end_turn', [
+            {'type': 'text', 'text': 'Sorry, that failed.'},
+          ]),
+        ]),
+        executor: ToolExecutor(_Crashes()),
+      );
+      final result = await run(l, 'What is on my list?');
+      expect(result.unexpectedError, isA<StateError>());
+      final results = l.transcript[2]['content'] as List;
+      expect((results.single as Map)['is_error'], isTrue);
+      expect(l.transcript.last['role'], 'assistant');
+    },
+  );
+
+  test('a tool_use stop with no calls ends as a plain answer, never an empty round', () async {
+    final l = loop([
+      _reply('tool_use', [
+        {'type': 'text', 'text': 'Let me check.'},
+      ]),
+    ]);
+    await run(l, 'Hi');
+    expect([for (final t in l.transcript) t['role']], ['user', 'assistant']);
+    expect(items.whereType<ClaudeSaid>().single.text, 'Let me check.');
   });
 
   test('stops after the round limit', () async {

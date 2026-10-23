@@ -66,17 +66,25 @@ class LocalStore {
     return collection == null ? base : Directory('${base.path}/$collection');
   }
 
-  Future<Directory> _historyRoot() => _history ??= () async {
+  /// Only a folder that was set up is remembered: if finding or creating it fails, the next
+  /// call tries again instead of failing for the rest of the session.
+  Future<Directory> _historyRoot() =>
+      _history ??= _setUpHistory().catchError((Object e) {
+        _history = null;
+        throw e;
+      });
+
+  Future<Directory> _setUpHistory() async {
     final dir = Directory('${(await _root()).path}/history');
     await dir.create(recursive: true);
     try {
       await _excludeFromBackup(dir);
     } catch (e) {
-      // Saving must still work if the mark fails; try again on the next launch.
+      // Saving must still work if the mark fails; it is tried again on the next launch.
       debugPrint('Parley: could not keep history off backups ($e)');
     }
     return dir;
-  }();
+  }
 
   File _item(Directory dir, String id) {
     // "index" would land on the index file itself.

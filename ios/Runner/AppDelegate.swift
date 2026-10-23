@@ -36,7 +36,7 @@ import UserNotifications
         try url.setResourceValues(values)
         result(nil)
       } catch {
-        result(FlutterError(code: "exclude_failed", message: nil, details: nil))
+        result(FlutterError(code: "exclude_failed", message: error.localizedDescription, details: nil))
       }
     }
   }

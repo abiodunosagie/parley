@@ -159,8 +159,13 @@ class AgentController extends Notifier<AgentState>
   Future<void> _save() async {
     final id = state.id;
     final model = state.model;
-    // Nothing worth saving until Claude has kept at least one turn.
-    if (id == null || model == null || _loop.transcript.isEmpty) return;
+    // Nothing worth saving until Claude has answered at least once: a first message that failed
+    // or was stopped stays on screen but does not fill history with dead conversations.
+    if (id == null ||
+        model == null ||
+        !_loop.transcript.any((turn) => turn['role'] == 'assistant')) {
+      return;
+    }
     final session = AgentSession(
       id: id,
       model: model,

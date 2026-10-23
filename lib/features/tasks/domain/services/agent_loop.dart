@@ -76,7 +76,8 @@ class AgentLoop {
         );
         if (!isCurrent()) return const AgentRunResult(notice: null);
 
-        if (reply.stopReason != 'tool_use') {
+        // A tool_use stop with no calls in it is treated as a broken answer, never as a round.
+        if (reply.stopReason != 'tool_use' || reply.toolCalls.isEmpty) {
           // Only a non-empty answer with no pending tool call is safe to keep.
           clean = reply.content.isNotEmpty && reply.toolCalls.isEmpty;
           if (clean) {
@@ -124,8 +125,14 @@ class AgentLoop {
       notice = messageFor(e, cancelled: cancel.isCancelled);
       if (isUnexpected(e, cancelled: cancel.isCancelled)) unexpected = e;
     }
+    // A tool that crashed was answered as an error so the round stayed whole; still log it.
+    unexpected ??= _toolError;
+    _toolError = null;
     return AgentRunResult(notice: notice, unexpectedError: unexpected);
   }
+
+  /// The first tool crash in the current run, handed to the caller for logging.
+  Object? _toolError;
 
   void _show(AgentReply reply, void Function(AgentItem item) onItem) {
     for (final thought in reply.thoughts) {
@@ -143,7 +150,8 @@ class AgentLoop {
         call['name'] as String? ?? '',
         input is Map ? Map<String, dynamic>.from(input) : const {},
       );
-    } catch (_) {
+    } catch (e) {
+      _toolError ??= e;
       return const ToolOutcome(
         content: 'The tool failed on the phone.',
         summary: 'Tool failed',
