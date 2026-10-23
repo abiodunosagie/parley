@@ -1,8 +1,8 @@
 // FILE: core/network/claude_client.dart
 // THE MOST IMPORTANT FILE FOR TALKING TO CLAUDE. Every Claude request goes through here.
-// It POSTs {mode, model, messages} to the `claude` Supabase edge function with the user's
-// session token. Chat and Look use `stream()` (text arrives bit by bit); Extract and Tasks use
-// `request()` (one JSON answer). The Claude API key is NOT here: it lives on the server.
+// It POSTs {mode, model, messages, options} to the `claude` Supabase edge function with the user's
+// session token. Chat, Look, Read and Rewrite use `stream()` (text arrives bit by bit); Extract,
+// Receipts and Tasks use `request()` (one JSON answer). The Claude API key is NOT here: it lives on the server.
 // Repositories in each feature's data/ folder call this; widgets never do.
 // Read next: supabase/functions/claude/index.ts (the other end of this call).
 
@@ -19,7 +19,7 @@ import 'cancel_token.dart';
 import 'sse.dart';
 
 /// What each screen asks the server for. Must match `MODES` in the edge function.
-enum ClaudeMode { chat, vision, extract, agent }
+enum ClaudeMode { chat, vision, document, rewrite, extract, receipt, agent }
 
 /// The app's only door to Claude: the `claude` Supabase edge function. Every call carries the
 /// signed-in user's session, which the server checks before it spends any credit.
@@ -31,15 +31,22 @@ class ClaudeClient {
   final Uri endpoint;
   final http.Client _client;
 
-  /// Streams Claude's reply as it is written. Used by chat and vision.
+  /// Streams Claude's reply as it is written. [webSearch] lets Claude search the web (chat only).
   Stream<StreamEvent> stream({
     required ClaudeMode mode,
     required ClaudeModel model,
     required List<Map<String, dynamic>> messages,
+    bool webSearch = false,
     CancelToken? cancel,
   }) async* {
     try {
-      final response = await _send(mode, model, messages, cancel);
+      final response = await _send(
+        mode,
+        model,
+        messages,
+        cancel,
+        options: webSearch ? const {'web_search': true} : null,
+      );
       if (response.statusCode != 200) {
         throw AppException(
           _errorText(
@@ -54,7 +61,7 @@ class ClaudeClient {
     }
   }
 
-  /// One finished JSON response. Used by extraction and the agent.
+  /// One finished JSON response. Used by extraction, receipts and the agent.
   Future<Map<String, dynamic>> request({
     required ClaudeMode mode,
     required ClaudeModel model,
@@ -76,12 +83,14 @@ class ClaudeClient {
     ClaudeMode mode,
     ClaudeModel model,
     List<Map<String, dynamic>> messages,
-    CancelToken? cancel,
-  ) async {
+    CancelToken? cancel, {
+    Map<String, dynamic>? options,
+  }) async {
     final body = jsonEncode({
       'mode': mode.name,
       'model': model.id,
       'messages': messages,
+      'options': ?options,
     });
     var response = await _post(body, await _token(), cancel);
     if (response.statusCode == 401) {

@@ -1,52 +1,24 @@
 // FILE: features/conversation/data/repositories/photo_repository_impl.dart
-// The real PhotoRepository, using image_picker. Photos are resized to 1568 px on the long edge,
-// the largest size Claude uses without shrinking it again, and saved as JPEG at 85% quality.
+// The real PhotoRepository: the shared photo picker (core/media/photo_picker.dart), with the
+// photo wrapped as a message attachment.
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/errors/app_exception.dart';
+import '../../../../core/media/photo_picker.dart';
 import '../../domain/entities/attachment.dart';
 import '../../domain/repositories/photo_repository.dart';
 
 class PhotoRepositoryImpl implements PhotoRepository {
-  PhotoRepositoryImpl([ImagePicker? picker])
-    : _picker = picker ?? ImagePicker();
-  final ImagePicker _picker;
-
-  static const _maxEdge = 1568.0;
-  static const _jpegQuality = 85;
+  PhotoRepositoryImpl(this._picker);
+  final PhotoPicker _picker;
 
   @override
   Future<Attachment?> pick(PhotoSource source) async {
-    final XFile? file;
-    try {
-      file = await _picker.pickImage(
-        source: source == PhotoSource.camera
-            ? ImageSource.camera
-            : ImageSource.gallery,
-        maxWidth: _maxEdge,
-        maxHeight: _maxEdge,
-        imageQuality: _jpegQuality,
-      );
-    } on PlatformException {
-      throw const AppException(
-        'Parley needs camera or photo access. Turn it on in Settings.',
-      );
-    }
-    if (file == null) return null;
-    final bytes = await file.readAsBytes();
-    final type = Attachment.mediaTypeOf(bytes);
-    if (type == null) {
-      throw const AppException(
-        'That file type is not supported. Use a JPEG, PNG, WebP or GIF image.',
-      );
-    }
-    return Attachment(bytes, type);
+    final photo = await _picker.pick(source);
+    return photo == null ? null : Attachment(photo.bytes, photo.mediaType);
   }
 }
 
 final photoRepositoryProvider = Provider<PhotoRepository>(
-  (ref) => PhotoRepositoryImpl(),
+  (ref) => PhotoRepositoryImpl(ref.watch(photoPickerProvider)),
 );

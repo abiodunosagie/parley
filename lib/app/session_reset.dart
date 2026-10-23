@@ -8,7 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/auth/presentation/providers/current_user_provider.dart';
 import '../features/conversation/presentation/providers/conversation_controller.dart';
+import '../features/conversation/presentation/providers/look_controller.dart';
+import '../features/conversation/presentation/providers/read_controller.dart';
 import '../features/extract/presentation/providers/extract_controller.dart';
+import '../features/receipt/presentation/providers/receipt_controller.dart';
+import '../features/rewrite/presentation/providers/rewrite_controller.dart';
 import '../features/tasks/presentation/providers/agent_controller.dart';
 import 'router/app_router.dart';
 
@@ -30,7 +34,10 @@ class SessionReset extends ConsumerWidget {
       ref
         ..invalidate(chatControllerProvider)
         ..invalidate(lookControllerProvider)
+        ..invalidate(readControllerProvider)
         ..invalidate(extractControllerProvider)
+        ..invalidate(receiptControllerProvider)
+        ..invalidate(rewriteControllerProvider)
         ..invalidate(agentControllerProvider);
     });
     return child;

@@ -1,5 +1,5 @@
 // FILE: features/home/presentation/screens/home_shell.dart
-// The frame around the four tabs. GoRouter's StatefulShellRoute keeps each tab's screen alive
+// The frame around the five tabs. GoRouter's StatefulShellRoute keeps each tab's screen alive
 // (scroll position, typed text) when you switch away; this widget only draws the tab bar and
 // tells the router which tab you tapped.
 
@@ -16,12 +16,9 @@ class HomeShell extends StatelessWidget {
   static const destinations = [
     TabDestination('Chat', Icons.forum_outlined, Icons.forum),
     TabDestination('Look', Icons.camera_alt_outlined, Icons.camera_alt),
-    TabDestination(
-      'Extract',
-      Icons.document_scanner_outlined,
-      Icons.document_scanner,
-    ),
+    TabDestination('Read', Icons.picture_as_pdf_outlined, Icons.picture_as_pdf),
     TabDestination('Tasks', Icons.task_alt_outlined, Icons.task_alt),
+    TabDestination('Tools', Icons.widgets_outlined, Icons.widgets),
   ];
 
   @override

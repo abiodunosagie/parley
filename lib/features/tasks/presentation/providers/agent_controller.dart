@@ -1,29 +1,38 @@
 // FILE: features/tasks/presentation/providers/agent_controller.dart
 // Connects the Tasks screen to the agent loop (domain/services/agent_loop.dart): keeps the lines
 // on screen, the running/idle status, the note under the conversation, and the model the
-// conversation is locked to.
+// conversation is locked to. Saves each conversation so it can be opened again from history.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/errors/error_log.dart';
 import '../../../../core/models/claude_model.dart';
 import '../../../../core/network/cancel_token.dart';
 import '../../../../core/state/selected_model_provider.dart';
+import '../../../auth/presentation/providers/current_user_provider.dart';
+import '../../data/repositories/agent_history_repository_impl.dart';
 import '../../data/repositories/agent_repository_impl.dart';
 import '../../domain/entities/agent_item.dart';
+import '../../domain/entities/agent_session.dart';
 import '../../domain/services/agent_loop.dart';
 import '../../domain/services/tool_executor.dart';
+import 'agent_history_provider.dart';
 import 'phone_tool_actions.dart';
 
 @immutable
 class AgentState {
   const AgentState({
+    this.id,
     this.items = const [],
     this.running = false,
     this.notice,
     this.model,
   });
+
+  /// The saved conversation's id. Null until the first message is sent.
+  final String? id;
   final List<AgentItem> items;
   final bool running;
   final String? notice;
@@ -39,6 +48,7 @@ class AgentState {
     bool? running,
     String? Function()? notice,
   }) => AgentState(
+    id: id,
     items: items ?? this.items,
     running: running ?? this.running,
     notice: notice == null ? this.notice : notice(),
@@ -47,6 +57,8 @@ class AgentState {
 }
 
 class AgentController extends Notifier<AgentState> {
+  static const _uuid = Uuid();
+
   // Built fresh in build(): Riverpod reruns build() on the same instance when the provider is
   // invalidated (for example after signing in again), so this must not be `late final`.
   late AgentLoop _loop;
@@ -65,6 +77,8 @@ class AgentController extends Notifier<AgentState> {
     return const AgentState();
   }
 
+  String? get _userId => ref.read(currentUserProvider).value?.id;
+
   void stop() => _current?.cancel();
 
   void reset() {
@@ -72,6 +86,36 @@ class AgentController extends Notifier<AgentState> {
     _current = null;
     _loop.clear();
     state = const AgentState();
+  }
+
+  /// Opens a saved conversation from history, ready to carry on.
+  Future<void> open(String id) async {
+    final userId = _userId;
+    if (userId == null) return;
+    final saved = await ref
+        .read(agentHistoryRepositoryProvider)
+        .load(userId, id);
+    if (!ref.mounted) return;
+    if (saved == null) {
+      state = state.copyWith(
+        notice: () => 'That conversation could not be opened.',
+      );
+      return;
+    }
+    _current?.cancel();
+    _current = null;
+    _loop.restore(saved.transcript);
+    state = AgentState(id: saved.id, items: saved.items, model: saved.model);
+  }
+
+  /// Deletes a saved conversation. Deleting the one on screen also clears the screen.
+  Future<void> deleteSaved(String id) async {
+    final userId = _userId;
+    if (userId == null) return;
+    await ref.read(agentHistoryRepositoryProvider).delete(userId, id);
+    if (!ref.mounted) return;
+    ref.invalidate(agentHistoryProvider);
+    if (state.id == id) reset();
   }
 
   Future<void> send(String text) async {
@@ -82,6 +126,7 @@ class AgentController extends Notifier<AgentState> {
     final model = state.model ?? selected;
 
     state = AgentState(
+      id: state.id ?? _uuid.v4(),
       items: [...state.items, UserSaid(text)],
       running: true,
       model: model,
@@ -104,6 +149,38 @@ class AgentController extends Notifier<AgentState> {
             ? 'This conversation stays on ${model.label}. Start a new one to use another model.'
             : null);
     state = state.copyWith(running: false, notice: () => notice);
+    await _save();
+  }
+
+  Future<void> _save() async {
+    final userId = _userId;
+    final id = state.id;
+    final model = state.model;
+    // Nothing worth saving until Claude has kept at least one turn.
+    if (userId == null ||
+        id == null ||
+        model == null ||
+        _loop.transcript.isEmpty) {
+      return;
+    }
+    try {
+      await ref
+          .read(agentHistoryRepositoryProvider)
+          .save(
+            userId,
+            AgentSession(
+              id: id,
+              model: model,
+              items: state.items,
+              transcript: _loop.transcript,
+              updatedAt: DateTime.now(),
+            ),
+          );
+      if (ref.mounted) ref.invalidate(agentHistoryProvider);
+    } catch (e) {
+      // Saving is a convenience: a full disk must not break the conversation on screen.
+      reportError(e, cancelled: false, tag: 'history');
+    }
   }
 }
 

@@ -3,12 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parley/app/app.dart';
 import 'package:parley/core/session/access_token_provider.dart';
+import 'package:parley/core/speech/speech_service.dart';
+import 'package:parley/core/storage/local_store.dart';
 import 'package:parley/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:parley/features/auth/domain/entities/app_user.dart';
 import 'package:parley/features/auth/presentation/screens/sign_in_screen.dart';
 import 'package:parley/features/conversation/presentation/screens/chat_screen.dart';
 import 'package:parley/features/conversation/presentation/screens/look_screen.dart';
+import 'package:parley/features/conversation/presentation/screens/read_screen.dart';
 import 'package:parley/features/extract/presentation/screens/extract_screen.dart';
+import 'package:parley/features/home/presentation/screens/tools_screen.dart';
+import 'package:parley/features/receipt/presentation/screens/receipt_screen.dart';
+import 'package:parley/features/rewrite/presentation/screens/rewrite_screen.dart';
 import 'package:parley/features/tasks/data/repositories/task_repository_impl.dart';
 import 'package:parley/features/tasks/presentation/screens/tasks_screen.dart';
 
@@ -33,6 +39,8 @@ Future<FakeAuth> _pumpApp(
         authRepositoryProvider.overrideWithValue(auth),
         accessTokenProvider.overrideWithValue(auth.accessToken),
         taskRepositoryProvider.overrideWithValue(MemoryTasks()),
+        localStoreProvider.overrideWithValue(MemoryStore()),
+        speechServiceProvider.overrideWithValue(FakeSpeech()),
       ],
       child: const ParleyApp(),
     ),
@@ -58,14 +66,29 @@ void main() {
         expect(find.byType(ChatScreen), findsOneWidget);
         for (final (label, screen) in [
           ('Look', LookScreen),
-          ('Extract', ExtractScreen),
+          ('Read', ReadScreen),
           ('Tasks', TasksScreen),
+          ('Tools', ToolsScreen),
           ('Chat', ChatScreen),
         ]) {
           await tester.tap(find.bySemanticsLabel(label));
           await tester.pumpAndSettle();
           expect(find.byType(screen), findsOneWidget, reason: '$label tab');
           expect(tester.takeException(), isNull, reason: '$label tab');
+        }
+        await tester.tap(find.bySemanticsLabel('Tools'));
+        await tester.pumpAndSettle();
+        for (final (title, screen) in [
+          ('Rewrite', RewriteScreen),
+          ('Receipts', ReceiptScreen),
+          ('Extract', ExtractScreen),
+        ]) {
+          await tester.tap(find.text(title));
+          await tester.pumpAndSettle();
+          expect(find.byType(screen), findsOneWidget, reason: '$title tool');
+          expect(tester.takeException(), isNull, reason: '$title tool');
+          await tester.pageBack();
+          await tester.pumpAndSettle();
         }
       },
     );

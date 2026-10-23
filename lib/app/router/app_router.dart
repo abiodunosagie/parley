@@ -1,6 +1,7 @@
 // FILE: app/router/app_router.dart
-// All navigation, with GoRouter. Signed out: only the sign-in screen. Signed in: the four tabs in
-// a StatefulShellRoute, so each tab keeps its own screen alive. The router re-checks the
+// All navigation, with GoRouter. Signed out: only the sign-in screen. Signed in: the five tabs in
+// a StatefulShellRoute, so each tab keeps its own screen alive; Tools opens its three tools on
+// top of its list. The router re-checks the
 // redirect every time the signed-in user changes, so signing in or out moves you automatically.
 
 import 'package:flutter/foundation.dart';
@@ -12,8 +13,12 @@ import '../../features/auth/presentation/providers/current_user_provider.dart';
 import '../../features/auth/presentation/screens/sign_in_screen.dart';
 import '../../features/conversation/presentation/screens/chat_screen.dart';
 import '../../features/conversation/presentation/screens/look_screen.dart';
+import '../../features/conversation/presentation/screens/read_screen.dart';
 import '../../features/extract/presentation/screens/extract_screen.dart';
 import '../../features/home/presentation/screens/home_shell.dart';
+import '../../features/home/presentation/screens/tools_screen.dart';
+import '../../features/receipt/presentation/screens/receipt_screen.dart';
+import '../../features/rewrite/presentation/screens/rewrite_screen.dart';
 import '../../features/tasks/presentation/screens/tasks_screen.dart';
 import 'app_routes.dart';
 
@@ -62,8 +67,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.extract,
-                builder: (_, _) => const ExtractScreen(),
+                path: AppRoutes.read,
+                builder: (_, _) => const ReadScreen(),
               ),
             ],
           ),
@@ -72,6 +77,28 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: AppRoutes.tasks,
                 builder: (_, _) => const TasksScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.tools,
+                builder: (_, _) => const ToolsScreen(),
+                routes: [
+                  GoRoute(
+                    path: AppRoutes.rewritePath,
+                    builder: (_, _) => const RewriteScreen(),
+                  ),
+                  GoRoute(
+                    path: AppRoutes.receiptsPath,
+                    builder: (_, _) => const ReceiptScreen(),
+                  ),
+                  GoRoute(
+                    path: AppRoutes.extractPath,
+                    builder: (_, _) => const ExtractScreen(),
+                  ),
+                ],
               ),
             ],
           ),

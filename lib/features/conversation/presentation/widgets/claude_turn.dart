@@ -1,6 +1,7 @@
 // FILE: features/conversation/presentation/widgets/claude_turn.dart
-// One of Claude's replies: the "Parley" label, then the reply rendered as Markdown, or the typing
-// dots while nothing has arrived yet. Long-press copies the whole reply.
+// One of Claude's replies: the "Parley" label, Claude's reasoning (folded once the answer starts),
+// the web searches it ran, the reply rendered as Markdown (or the typing dots while nothing has
+// arrived yet), and the sources it cited. Long-press copies the reply text.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +9,10 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 
 import '../../../../core/theme/markdown_theme.dart';
 import '../../../../core/theme/parley_colors.dart';
+import '../../../../core/widgets/reasoning_panel.dart';
 import '../../domain/entities/chat_message.dart';
+import 'search_lines.dart';
+import 'source_list.dart';
 import 'typing_dots.dart';
 
 /// One of Claude's replies.
@@ -16,7 +20,7 @@ class ClaudeTurn extends StatelessWidget {
   const ClaudeTurn(this.message, {super.key, required this.waiting});
   final ChatMessage message;
 
-  /// True while the reply has been requested but no text has arrived yet.
+  /// True while the reply has been requested but nothing has arrived yet.
   final bool waiting;
 
   void _copy(BuildContext context) {
@@ -45,9 +49,15 @@ class ClaudeTurn extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
+            if (message.thinking.isNotEmpty)
+              ReasoningPanel(
+                thinking: message.thinking,
+                answering: message.text.isNotEmpty,
+              ),
+            if (message.searches.isNotEmpty) SearchLines(message.searches),
             if (waiting)
               const TypingDots()
-            else
+            else if (message.text.isNotEmpty)
               GptMarkdownTheme(
                 gptThemeData: markdownThemeOf(context),
                 child: GptMarkdown(
@@ -55,6 +65,7 @@ class ClaudeTurn extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
               ),
+            if (message.sources.isNotEmpty) SourceList(message.sources),
           ],
         ),
       ),

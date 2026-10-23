@@ -1,6 +1,7 @@
 // FILE: features/conversation/presentation/widgets/conversation_view.dart
-// The body both Chat and Look share: the conversation (or what to show while it is empty), the
-// note under it, and the composer. Screens only decide the empty state and the hint.
+// The body Chat, Look and Read share: the conversation (or what to show while it is empty), the
+// note under it, an optional control above the composer (Chat's web search switch), and the
+// composer. Screens only decide the empty state, the hint and that control.
 
 import 'package:flutter/material.dart';
 
@@ -17,6 +18,7 @@ class ConversationView extends StatelessWidget {
     required this.onStop,
     required this.empty,
     this.hint = 'Message Parley',
+    this.aboveComposer,
   });
 
   final ConversationState state;
@@ -26,6 +28,7 @@ class ConversationView extends StatelessWidget {
   /// Shown instead of the message list before the first message.
   final Widget empty;
   final String hint;
+  final Widget? aboveComposer;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +40,7 @@ class ConversationView extends StatelessWidget {
               : MessageList(messages: state.messages, busy: state.busy),
         ),
         if (state.notice != null) Notice(state.notice!),
+        ?aboveComposer,
         Composer(busy: state.busy, onSend: onSend, onStop: onStop, hint: hint),
       ],
     );

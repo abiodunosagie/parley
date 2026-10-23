@@ -42,6 +42,13 @@ class AgentLoop {
 
   void clear() => _transcript.clear();
 
+  /// Carries on a saved conversation: [transcript] is what [transcript] returned back then.
+  void restore(List<Map<String, dynamic>> transcript) {
+    _transcript
+      ..clear()
+      ..addAll(transcript);
+  }
+
   /// Runs one user message to the end. [onItem] receives each line for the screen as it happens.
   /// [isCurrent] returns false once the screen started over, and the run then stops quietly.
   Future<AgentRunResult> run({
@@ -64,6 +71,9 @@ class AgentLoop {
           cancel: cancel,
         );
         if (!isCurrent()) return const AgentRunResult(notice: null);
+        for (final thought in reply.thoughts) {
+          onItem(ClaudeThought(thought));
+        }
         for (final said in reply.texts) {
           onItem(ClaudeSaid(said));
         }

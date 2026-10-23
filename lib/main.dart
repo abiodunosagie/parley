@@ -14,6 +14,7 @@ import 'app/missing_config_app.dart';
 import 'core/config/env.dart';
 import 'core/session/access_token_provider.dart';
 import 'core/session/account_cleanup_provider.dart';
+import 'core/storage/local_store.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/tasks/data/repositories/task_repository_impl.dart';
 
@@ -34,7 +35,10 @@ Future<void> main() async {
           (ref) => ref.watch(authRepositoryProvider).accessToken,
         ),
         accountCleanupsProvider.overrideWith(
-          (ref) => [ref.watch(taskRepositoryProvider).forget],
+          (ref) => [
+            ref.watch(taskRepositoryProvider).forget,
+            ref.watch(localStoreProvider).forgetUser,
+          ],
         ),
       ],
       child: const ParleyApp(),

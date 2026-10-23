@@ -1,22 +1,27 @@
 // FILE: features/conversation/presentation/screens/chat_screen.dart
-// FEATURE 1 SCREEN: streaming chat. Example prompts while empty, the conversation otherwise.
+// FEATURE 1 SCREEN: streaming chat, with Claude's reasoning on show and optional web search with
+// cited sources. Example prompts while empty, the conversation otherwise. History in the app bar.
 // All logic is in ConversationController (chatControllerProvider).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/widgets/intro_list.dart';
 import '../../../../core/widgets/screen_intro.dart';
 import '../../../home/presentation/widgets/feature_app_bar.dart';
+import '../../domain/entities/conversation_kind.dart';
 import '../providers/conversation_controller.dart';
 import '../widgets/conversation_view.dart';
-import '../../../../core/widgets/intro_list.dart';
+import '../widgets/history_button.dart';
+import '../widgets/web_search_toggle.dart';
 
 class ChatScreen extends ConsumerWidget {
   const ChatScreen({super.key});
 
   static const _starters = [
     'Explain how streaming works in a chat app, simply',
-    'Write a Flutter widget that shows a countdown timer',
+    'What changed in the latest Flutter release?',
+    'Plan a three-day trip to Lisbon on a budget',
     'Give me three interview questions about React Native and answer them',
   ];
 
@@ -29,6 +34,10 @@ class ChatScreen extends ConsumerWidget {
       appBar: FeatureAppBar(
         title: 'Chat',
         actions: [
+          ConversationHistoryButton(
+            kind: ConversationKind.chat,
+            controller: controller,
+          ),
           IconButton(
             tooltip: 'New chat',
             onPressed: state.isEmpty ? null : controller.reset,
@@ -40,10 +49,15 @@ class ChatScreen extends ConsumerWidget {
         state: state,
         onSend: controller.send,
         onStop: controller.stop,
+        aboveComposer: WebSearchToggle(
+          on: state.webSearch,
+          enabled: !state.busy,
+          onChanged: controller.setWebSearch,
+        ),
         empty: IntroList(
           header: const ScreenIntro(
             title: 'Ask anything.',
-            body: 'Replies stream in as Claude writes them. Switch models from the top right.',
+            body: 'Replies stream in as Claude writes them, with its reasoning one tap away. Turn on web search for anything current.',
           ),
           starters: _starters,
           onPick: controller.send,

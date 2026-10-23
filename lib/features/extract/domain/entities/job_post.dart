@@ -53,4 +53,18 @@ class JobPost {
       applyBy: text('apply_by'),
     );
   }
+
+  /// The same keys the server's schema uses, so a saved job reads back through [JobPost.fromJson].
+  Map<String, dynamic> toJson() => {
+    'title': title,
+    'company': company,
+    'location': location,
+    'remote': workStyle,
+    'seniority': seniority,
+    'salary': salary,
+    'skills': skills,
+    'nice_to_have': niceToHave,
+    'summary': summary,
+    'apply_by': applyBy,
+  };
 }

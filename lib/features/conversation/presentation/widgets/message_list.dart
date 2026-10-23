@@ -36,7 +36,8 @@ class MessageList extends StatelessWidget {
         final index = messages.length - 1 - i;
         final message = messages[index];
         final isLast = index == messages.length - 1;
-        final waiting = busy && isLast && message.text.isEmpty;
+        final waiting =
+            busy && isLast && message.text.isEmpty && message.thinking.isEmpty;
         return message.fromUser
             ? UserTurn(message)
             : ClaudeTurn(message, waiting: waiting);

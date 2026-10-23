@@ -10,11 +10,13 @@ import '../entities/reply_event.dart';
 
 abstract interface class ConversationRepository {
   /// Streams Claude's reply to [history] (which ends with the user's latest message).
-  /// Cancelling [cancel] ends the stream quietly. Throws AppException when the request fails.
+  /// [webSearch] lets Claude search the web (chat only). Cancelling [cancel] ends the stream
+  /// quietly. Throws AppException when the request fails.
   Stream<ReplyEvent> reply({
     required ConversationKind kind,
     required ClaudeModel model,
     required List<ChatMessage> history,
+    bool webSearch = false,
     CancelToken? cancel,
   });
 }

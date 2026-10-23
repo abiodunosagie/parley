@@ -11,6 +11,7 @@ import '../../../../core/network/sse.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/conversation_kind.dart';
 import '../../domain/entities/reply_event.dart';
+import '../../domain/entities/source.dart';
 import '../../domain/repositories/conversation_repository.dart';
 import '../mappers/chat_message_mapper.dart';
 
@@ -23,23 +24,38 @@ class ConversationRepositoryImpl implements ConversationRepository {
     required ConversationKind kind,
     required ClaudeModel model,
     required List<ChatMessage> history,
+    bool webSearch = false,
     CancelToken? cancel,
-  }) => _client
-      .stream(
-        mode: kind == ConversationKind.chat
-            ? ClaudeMode.chat
-            : ClaudeMode.vision,
-        model: model,
-        messages: [for (final m in history) m.toApi()],
-        cancel: cancel,
-      )
-      .map(
-        (event) => switch (event) {
-          TextDelta(:final text) => ReplyText(text),
-          StreamDone(:final stopReason) => ReplyDone(stopReason),
-          StreamFailed(:final message) => ReplyFailed(message),
+  }) async* {
+    final events = _client.stream(
+      mode: switch (kind) {
+        ConversationKind.chat => ClaudeMode.chat,
+        ConversationKind.vision => ClaudeMode.vision,
+        ConversationKind.document => ClaudeMode.document,
+      },
+      model: model,
+      messages: [for (final m in history) m.toApi()],
+      webSearch: webSearch && kind == ConversationKind.chat,
+      cancel: cancel,
+    );
+    await for (final event in events) {
+      final mapped = switch (event) {
+        ThinkingDelta(:final text) => ReplyThinking(text),
+        TextDelta(:final text) => ReplyText(text),
+        SearchRan(:final query) => ReplySearch(query),
+        SourceCited(:final source) => switch (Source.fromJson(source)) {
+          final s? => ReplySource(s),
+          null => null,
         },
-      );
+        StreamDone(:final stopReason, :final content) => ReplyDone(
+          stopReason,
+          content: content,
+        ),
+        StreamFailed(:final message) => ReplyFailed(message),
+      };
+      if (mapped != null) yield mapped;
+    }
+  }
 }
 
 final conversationRepositoryProvider = Provider<ConversationRepository>(

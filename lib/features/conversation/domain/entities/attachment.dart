@@ -1,35 +1,27 @@
 // FILE: features/conversation/domain/entities/attachment.dart
-// A photo attached to a chat message, with its file type checked from the file's
-// first bytes (JPEG, PNG, GIF or WebP).
+// A photo or a PDF attached to the first message of a conversation, with its file type checked
+// from the file's first bytes (JPEG, PNG, GIF, WebP or PDF).
 
 import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
 
-/// A photo attached to a user message, already in a format Claude accepts.
+import '../../../../core/media/media_type.dart' as media;
+
+/// A photo or PDF on a user message, already in a format Claude accepts.
 @immutable
 class Attachment {
-  const Attachment(this.bytes, this.mediaType);
+  const Attachment(this.bytes, this.mediaType, {this.name});
   final Uint8List bytes;
   final String mediaType;
 
-  /// Reads the file signature, so a HEIC or a renamed file is refused here, not by the server.
-  static String? mediaTypeOf(Uint8List b) {
-    bool starts(List<int> sig, [int offset = 0]) {
-      if (b.length < offset + sig.length) return false;
-      for (var i = 0; i < sig.length; i++) {
-        if (b[offset + i] != sig[i]) return false;
-      }
-      return true;
-    }
+  /// The file name, shown for PDFs and sent as the document title.
+  final String? name;
 
-    if (starts([0xFF, 0xD8, 0xFF])) return 'image/jpeg';
-    if (starts([0x89, 0x50, 0x4E, 0x47])) return 'image/png';
-    if (starts([0x47, 0x49, 0x46, 0x38])) return 'image/gif';
-    if (starts([0x52, 0x49, 0x46, 0x46]) &&
-        starts([0x57, 0x45, 0x42, 0x50], 8)) {
-      return 'image/webp';
-    }
-    return null;
-  }
+  static const pdf = media.pdfMediaType;
+
+  bool get isPdf => mediaType == pdf;
+
+  /// Reads the file signature, so a HEIC or a renamed file is refused here, not by the server.
+  static String? mediaTypeOf(Uint8List bytes) => media.mediaTypeOf(bytes);
 }

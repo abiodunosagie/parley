@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parley/core/theme/app_theme.dart';
 import 'package:parley/core/widgets/composer.dart';
+import 'package:parley/core/speech/speech_service.dart';
 import 'package:parley/core/widgets/keyboard_dismiss.dart';
+
+import '../../helpers/fakes.dart';
 
 /// KeyboardDismiss wraps every screen (app/app.dart). It must close the keyboard on a tap outside
 /// a field, and never steal the tap that should open it.
-Widget _app() => MaterialApp(
-  theme: parleyTheme(Brightness.light),
-  builder: (context, child) => KeyboardDismiss(child: child!),
-  home: Scaffold(
-    body: Column(
-      children: [
-        const Expanded(child: SizedBox.expand()),
-        Composer(busy: false, onSend: (_) {}, onStop: () {}),
-      ],
+Widget _app() => ProviderScope(
+  overrides: [speechServiceProvider.overrideWithValue(FakeSpeech())],
+  child: MaterialApp(
+    theme: parleyTheme(Brightness.light),
+    builder: (context, child) => KeyboardDismiss(child: child!),
+    home: Scaffold(
+      body: Column(
+        children: [
+          const Expanded(child: SizedBox.expand()),
+          Composer(busy: false, onSend: (_) {}, onStop: () {}),
+        ],
+      ),
     ),
   ),
 );

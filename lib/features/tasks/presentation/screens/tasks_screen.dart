@@ -6,11 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/widgets/composer.dart';
+import '../../../../core/widgets/history_sheet.dart';
 import '../../../../core/widgets/intro_list.dart';
 import '../../../../core/widgets/notice.dart';
 import '../../../../core/widgets/screen_intro.dart';
 import '../../../home/presentation/widgets/feature_app_bar.dart';
 import '../providers/agent_controller.dart';
+import '../providers/agent_history_provider.dart';
 import '../widgets/agent_item_view.dart';
 import '../widgets/task_panel.dart';
 
@@ -33,6 +35,18 @@ class TasksScreen extends ConsumerWidget {
       appBar: FeatureAppBar(
         title: 'Tasks',
         actions: [
+          IconButton(
+            tooltip: 'History',
+            icon: const Icon(Icons.history),
+            onPressed: () => showHistorySheet(
+              context,
+              entries: agentHistoryProvider,
+              onOpen: agent.open,
+              onDelete: agent.deleteSaved,
+              empty:
+                  'Your task conversations appear here after the first reply.',
+            ),
+          ),
           IconButton(
             tooltip: 'New conversation',
             onPressed: state.isEmpty ? null : agent.reset,

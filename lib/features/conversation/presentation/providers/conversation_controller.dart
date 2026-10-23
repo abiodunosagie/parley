@@ -1,32 +1,39 @@
 // FILE: features/conversation/presentation/providers/conversation_controller.dart
-// FEATURE 1 AND 2 LOGIC: a streamed conversation with Claude, used by Chat and Look.
-// Chat uses this controller as is; Look extends it with the photo (LookController below).
+// FEATURE 1, 2 AND 3 LOGIC: a streamed conversation with Claude, used by Chat, Look and Read.
+// Chat uses this controller as is; Look and Read extend it with the photo or PDF
+// (look_controller.dart, read_controller.dart).
 // The flow of `send()`:
 //   1. Add your message and an empty reply bubble to the screen.
 //   2. Ask ConversationRepository.reply() for the reply.
-//   3. Each ReplyText appends to the reply bubble, so the text appears as Claude writes it.
-//   4. When the stream ends, show a note if Claude stopped early or something failed.
+//   3. Reasoning, text, searches and sources land in the reply bubble as they arrive.
+//   4. When the stream ends, keep Claude's turn for the next request, save the conversation, and
+//      show a note if Claude stopped early or something failed.
 // `_current` makes sure an old reply that is still arriving can never write into a new chat.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
-import '../../../../core/errors/app_exception.dart';
 import '../../../../core/errors/error_log.dart';
 import '../../../../core/errors/user_messages.dart';
 import '../../../../core/network/cancel_token.dart';
 import '../../../../core/state/selected_model_provider.dart';
+import '../../../auth/presentation/providers/current_user_provider.dart';
+import '../../data/repositories/conversation_history_repository_impl.dart';
 import '../../data/repositories/conversation_repository_impl.dart';
-import '../../data/repositories/photo_repository_impl.dart';
 import '../../domain/entities/chat_message.dart';
+import '../../domain/entities/conversation.dart';
 import '../../domain/entities/conversation_kind.dart';
 import '../../domain/entities/reply_event.dart';
-import '../../domain/repositories/photo_repository.dart';
+import '../../domain/entities/source.dart';
+import 'conversation_history_provider.dart';
 import 'conversation_state.dart';
 
 class ConversationController extends Notifier<ConversationState> {
   ConversationController(this.kind);
   final ConversationKind kind;
+
+  static const _uuid = Uuid();
 
   /// The send that owns the state. Starting over replaces it, and an older send that is still
   /// unwinding sees it is no longer current and stops touching the state.
@@ -39,31 +46,70 @@ class ConversationController extends Notifier<ConversationState> {
     return const ConversationState();
   }
 
+  String? get _userId => ref.read(currentUserProvider).value?.id;
+
   void reset() {
-    _abandon();
-    state = const ConversationState();
+    abandonCurrent();
+    state = ConversationState(webSearch: state.webSearch);
   }
 
   void stop() => _current?.cancel();
 
+  /// Chat only: lets Claude search the web from the next message on.
+  void setWebSearch(bool on) => state = state.copyWith(webSearch: on);
+
   /// Cancels any running reply and stops it from touching the state again.
   @protected
-  void abandonCurrent() => _abandon();
-
-  void _abandon() {
+  void abandonCurrent() {
     _current?.cancel();
     _current = null;
   }
 
+  /// Opens a saved conversation from history, ready to carry on.
+  Future<void> open(String id) async {
+    final userId = _userId;
+    if (userId == null) return;
+    final saved = await ref
+        .read(conversationHistoryRepositoryProvider)
+        .load(userId, kind, id);
+    if (!ref.mounted) return;
+    abandonCurrent();
+    state = saved == null
+        ? state.copyWith(notice: () => 'That conversation could not be opened.')
+        : ConversationState(
+            id: saved.id,
+            messages: saved.messages,
+            attachment: saved.attachment,
+            model: saved.model,
+            webSearch: saved.webSearch,
+          );
+  }
+
+  /// Deletes a saved conversation. Deleting the one on screen also clears the screen.
+  Future<void> deleteSaved(String id) async {
+    final userId = _userId;
+    if (userId == null) return;
+    await ref
+        .read(conversationHistoryRepositoryProvider)
+        .delete(userId, kind, id);
+    if (!ref.mounted) return;
+    ref.invalidate(conversationHistoryProvider(kind));
+    if (state.id == id) reset();
+  }
+
   Future<void> send(String text) async {
     if (state.busy) return;
+    final selected = ref.read(selectedModelProvider);
+    final model = state.model ?? selected;
     final user = ChatMessage(
       fromUser: true,
       text: text,
-      attachment: state.isEmpty ? state.photo : null,
+      attachment: state.isEmpty ? state.attachment : null,
     );
     final history = [...state.messages, user];
     state = state.copyWith(
+      id: state.id ?? _uuid.v4(),
+      model: model,
       messages: [
         ...history,
         const ChatMessage(fromUser: false, text: ''),
@@ -74,7 +120,7 @@ class ConversationController extends Notifier<ConversationState> {
 
     final token = _current = CancelToken();
     bool stillMine() => ref.mounted && identical(_current, token);
-    final reply = StringBuffer();
+    final reply = _ReplyBuilder();
     String? notice;
     var finished = false;
     try {
@@ -82,23 +128,26 @@ class ConversationController extends Notifier<ConversationState> {
           .read(conversationRepositoryProvider)
           .reply(
             kind: kind,
-            model: ref.read(selectedModelProvider),
+            model: model,
             history: history,
+            webSearch: state.webSearch,
             cancel: token,
           );
       await for (final event in events) {
         if (!stillMine()) return;
         switch (event) {
-          case ReplyText(:final text):
-            reply.write(text);
-            _showReply(reply.toString());
-          case ReplyDone(:final stopReason):
+          case ReplyDone(:final stopReason, :final content):
             finished = true;
             notice = stopReasonNote(stopReason);
+            // A cut-short turn is not replayed: its text alone is the safer history.
+            if (stopReason == 'end_turn') reply.replay = content;
           case ReplyFailed(:final message):
             finished = true;
             notice = message;
+          default:
+            reply.add(event);
         }
+        _showReply(reply.build());
       }
       if (!finished) {
         notice = token.isCancelled
@@ -111,43 +160,91 @@ class ConversationController extends Notifier<ConversationState> {
 
     if (!stillMine()) return;
     _current = null;
+    if (notice == null && model != selected) {
+      notice =
+          'This conversation stays on ${model.label}. Start a new one to use another model.';
+    }
     // A reply that never started is removed, so the next send does not carry an empty turn.
     state = state.copyWith(
       messages: reply.isEmpty ? history : state.messages,
       status: ReplyStatus.idle,
       notice: () => notice,
     );
+    await _save();
   }
 
-  void _showReply(String text) {
+  void _showReply(ChatMessage reply) {
     final messages = [...state.messages];
-    messages[messages.length - 1] = messages.last.withText(text);
+    messages[messages.length - 1] = reply;
     state = state.copyWith(messages: messages);
   }
+
+  Future<void> _save() async {
+    final userId = _userId;
+    final id = state.id;
+    final model = state.model;
+    if (userId == null || id == null || model == null || state.isEmpty) return;
+    try {
+      await ref
+          .read(conversationHistoryRepositoryProvider)
+          .save(
+            userId,
+            Conversation(
+              id: id,
+              kind: kind,
+              model: model,
+              messages: state.messages,
+              updatedAt: DateTime.now(),
+              attachment: state.attachment,
+              webSearch: state.webSearch,
+            ),
+          );
+      if (ref.mounted) ref.invalidate(conversationHistoryProvider(kind));
+    } catch (e) {
+      // Saving is a convenience: a full disk must not break the conversation on screen.
+      reportError(e, cancelled: false, tag: 'history');
+    }
+  }
+}
+
+/// Collects one streamed reply: reasoning, text, searches and sources (each source once).
+class _ReplyBuilder {
+  final _thinking = StringBuffer();
+  final _text = StringBuffer();
+  final _searches = <String>[];
+  final _sources = <String, Source>{};
+  List<Map<String, dynamic>> replay = const [];
+
+  /// No reply text yet. Reasoning alone is not a reply, so a reply stopped while Claude was
+  /// still thinking is dropped.
+  bool get isEmpty => _text.isEmpty;
+
+  void add(ReplyEvent event) {
+    switch (event) {
+      case ReplyThinking(:final text):
+        _thinking.write(text);
+      case ReplyText(:final text):
+        _text.write(text);
+      case ReplySearch(:final query):
+        _searches.add(query);
+      case ReplySource(:final source):
+        _sources.putIfAbsent(source.key, () => source);
+      case ReplyDone() || ReplyFailed():
+        break;
+    }
+  }
+
+  ChatMessage build() => ChatMessage(
+    fromUser: false,
+    text: _text.toString(),
+    thinking: _thinking.toString(),
+    searches: List.unmodifiable(_searches),
+    sources: List.unmodifiable(_sources.values),
+    replay: replay,
+  );
 }
 
 final chatControllerProvider =
     NotifierProvider<ConversationController, ConversationState>(
       () => ConversationController(ConversationKind.chat),
     );
-
-/// Look: the same streamed conversation, plus the photo it is about.
-class LookController extends ConversationController {
-  LookController() : super(ConversationKind.vision);
-
-  /// Takes or picks a photo and starts a new conversation about it. When the photo cannot be
-  /// used (access denied, unsupported file) the reason lands in `notice`.
-  Future<void> pickPhoto(PhotoSource source) async {
-    try {
-      final photo = await ref.read(photoRepositoryProvider).pick(source);
-      if (photo == null || !ref.mounted) return;
-      abandonCurrent();
-      state = ConversationState(photo: photo);
-    } on AppException catch (e) {
-      if (ref.mounted) state = state.copyWith(notice: () => e.message);
-    }
-  }
-}
-
-final lookControllerProvider =
-    NotifierProvider<LookController, ConversationState>(LookController.new);

@@ -2,9 +2,10 @@
 // Gets a photo from the camera or the library, already resized and checked for a supported type.
 // Implemented in data/repositories/photo_repository_impl.dart.
 
+import '../../../../core/media/photo_source.dart';
 import '../entities/attachment.dart';
 
-enum PhotoSource { camera, library }
+export '../../../../core/media/photo_source.dart';
 
 abstract interface class PhotoRepository {
   /// The chosen photo, or null when the user cancelled. Throws AppException when access is

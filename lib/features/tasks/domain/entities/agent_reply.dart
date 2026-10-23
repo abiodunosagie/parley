@@ -13,6 +13,16 @@ class AgentReply {
       if (block['type'] == 'tool_use') block,
   ];
 
+  /// Claude's summarized reasoning for this turn, one entry per thinking block.
+  Iterable<String> get thoughts sync* {
+    for (final block in content) {
+      final text = block['type'] == 'thinking'
+          ? (block['thinking'] as String? ?? '').trim()
+          : '';
+      if (text.isNotEmpty) yield text;
+    }
+  }
+
   Iterable<String> get texts sync* {
     for (final block in content) {
       final text = block['type'] == 'text'

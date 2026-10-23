@@ -58,3 +58,4 @@ docs/task-tracker.tsv
 docs/task-tracker.meta.json
 docs/track-profile.json
 docs/.task-tracker.tsv.lock
+docs/.*.lock
