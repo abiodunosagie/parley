@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- B "Turns": two message blocks, one from each side, the rhythm of a conversation. Each has one
+       square corner, the bubble's tail, pointing to its speaker. -->
+  <path fill="#000" d="M40 120V84A28 28 0 0 1 68 56H156A28 28 0 0 1 184 84V92A28 28 0 0 1 156 120Z"/>
+  <path fill="#000" d="M216 200V164A28 28 0 0 0 188 136H100A28 28 0 0 0 72 164V172A28 28 0 0 0 100 200Z"/>
+</svg>

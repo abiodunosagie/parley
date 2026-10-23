@@ -113,9 +113,12 @@ class _ClaudeTurn extends StatelessWidget {
             if (waiting)
               const TypingDots()
             else
-              GptMarkdown(
-                message.text,
-                style: Theme.of(context).textTheme.bodyLarge,
+              GptMarkdownTheme(
+                gptThemeData: parleyMarkdownTheme(context),
+                child: GptMarkdown(
+                  message.text,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
               ),
           ],
         ),

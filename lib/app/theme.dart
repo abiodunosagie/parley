@@ -4,6 +4,7 @@
 // on. Change a colour here and the whole app follows.
 
 import 'package:flutter/material.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 
 /// Corner radius for every box, button and bubble. Rounded, never a pill.
 const kRadius = BorderRadius.all(Radius.circular(12));
@@ -22,6 +23,7 @@ class ParleyColors extends ThemeExtension<ParleyColors> {
     required this.onAccent,
     required this.accentSoft,
     required this.danger,
+    required this.code,
   });
 
   final Color background;
@@ -34,6 +36,9 @@ class ParleyColors extends ThemeExtension<ParleyColors> {
   final Color accentSoft;
   final Color danger;
 
+  /// Background of code blocks in Claude's replies.
+  final Color code;
+
   static const light = ParleyColors(
     background: Color(0xFFFFFFFF),
     ink: Color(0xFF15130F),
@@ -44,6 +49,7 @@ class ParleyColors extends ThemeExtension<ParleyColors> {
     onAccent: Color(0xFFFFFFFF),
     accentSoft: Color(0xFFE3F0EA),
     danger: Color(0xFFB3261E),
+    code: Color(0xFFF6F5F2),
   );
 
   static const dark = ParleyColors(
@@ -56,6 +62,7 @@ class ParleyColors extends ThemeExtension<ParleyColors> {
     onAccent: Color(0xFF0F0E0C),
     accentSoft: Color(0xFF173328),
     danger: Color(0xFFF2B8B5),
+    code: Color(0xFF1A1916),
   );
 
   @override
@@ -69,6 +76,7 @@ class ParleyColors extends ThemeExtension<ParleyColors> {
     Color? onAccent,
     Color? accentSoft,
     Color? danger,
+    Color? code,
   }) => ParleyColors(
     background: background ?? this.background,
     ink: ink ?? this.ink,
@@ -79,6 +87,7 @@ class ParleyColors extends ThemeExtension<ParleyColors> {
     onAccent: onAccent ?? this.onAccent,
     accentSoft: accentSoft ?? this.accentSoft,
     danger: danger ?? this.danger,
+    code: code ?? this.code,
   );
 
   @override
@@ -95,6 +104,7 @@ class ParleyColors extends ThemeExtension<ParleyColors> {
       onAccent: mix(onAccent, other.onAccent),
       accentSoft: mix(accentSoft, other.accentSoft),
       danger: mix(danger, other.danger),
+      code: mix(code, other.code),
     );
   }
 }
@@ -186,5 +196,45 @@ ThemeData parleyTheme(Brightness brightness) {
       ),
     ),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+  );
+}
+
+/// Colours for Claude's Markdown replies. gpt_markdown falls back to its own light defaults for
+/// headings and code blocks, which turned dark-mode headings dark-on-dark and code blocks lavender,
+/// so every colour it draws with is set here from Parley's palette.
+GptMarkdownThemeData parleyMarkdownTheme(BuildContext context) {
+  final c = context.colors;
+  final brightness = Theme.of(context).brightness;
+  TextStyle heading(double size) => TextStyle(
+    fontSize: size,
+    fontWeight: FontWeight.w700,
+    height: 1.3,
+    letterSpacing: -0.3,
+    color: c.ink,
+  );
+  return GptMarkdownThemeData(
+    brightness: brightness,
+    h1: heading(24),
+    h2: heading(21),
+    h3: heading(18),
+    h4: heading(17),
+    h5: heading(16),
+    h6: heading(15),
+    linkColor: c.accent,
+    linkHoverColor: c.accent,
+    hrLineColor: c.line,
+    highlightColor: c.userBubble,
+    styleSheet: GptMarkdownStyleSheet(
+      codeBlock: CodeBlockStyle(
+        backgroundColor: c.code,
+        borderColor: c.line,
+        textColor: c.ink,
+        borderRadius: const Radius.circular(12),
+        // The package draws these two from its own light palette in dark mode; long-press on a
+        // reply copies the whole answer instead.
+        showLanguageLabel: false,
+        showCopyButton: false,
+      ),
+    ),
   );
 }
