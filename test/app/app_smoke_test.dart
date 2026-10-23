@@ -24,6 +24,15 @@ import 'package:parley/features/tasks/presentation/screens/tasks_screen.dart';
 
 import '../helpers/fakes.dart';
 
+/// Steps past the launch splash, which waits for the first frame, plays for 1.6 s, then holds
+/// the finished mark before handing over. Timers need the clock moved, not just frames settled.
+Future<void> _pastLaunch(WidgetTester tester) async {
+  for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 250));
+  }
+  await tester.pumpAndSettle();
+}
+
 Future<FakeAuth> _pumpApp(
   WidgetTester tester, {
   required bool signedIn,
@@ -53,7 +62,7 @@ Future<FakeAuth> _pumpApp(
       child: const ParleyApp(),
     ),
   );
-  await tester.pumpAndSettle();
+  await _pastLaunch(tester);
   return auth;
 }
 
@@ -81,7 +90,7 @@ void main() {
     );
     await tester.pump();
     expect(find.byType(LaunchScreen), findsOneWidget);
-    await tester.pumpAndSettle();
+    await _pastLaunch(tester);
     expect(find.byType(OnboardingScreen), findsOneWidget);
     for (var page = 0; page < 3; page++) {
       await tester.tap(find.text('Continue'));
@@ -118,7 +127,7 @@ void main() {
         child: const ParleyApp(),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pastLaunch(tester);
     for (var page = 0; page < 4; page++) {
       expect(tester.takeException(), isNull, reason: 'page ${page + 1}');
       if (page < 3) {

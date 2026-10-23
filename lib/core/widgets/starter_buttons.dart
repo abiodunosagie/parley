@@ -1,9 +1,13 @@
 // FILE: core/widgets/starter_buttons.dart
-// Tap-to-send example prompts, one full-width row each.
+// Example prompts on an empty screen, drawn as messages you have not sent yet: on the right like
+// your own bubbles, outlined instead of filled, each with the send arrow. Tap one and it becomes
+// your first turn.
 
 import 'package:flutter/material.dart';
 
-/// Tap-to-send example prompts, one full-width row each.
+import '../theme/dimens.dart';
+import '../theme/parley_colors.dart';
+
 class StarterButtons extends StatelessWidget {
   const StarterButtons({super.key, required this.items, required this.onPick});
   final List<String> items;
@@ -11,19 +15,44 @@ class StarterButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         for (final item in items)
           Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: OutlinedButton(
-              onPressed: () => onPick(item),
-              style: OutlinedButton.styleFrom(
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.only(bottom: 10, left: 40),
+            child: Material(
+              color: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: kRadius,
+                side: BorderSide(color: colors.userBubble, width: 1.5),
               ),
-              child: Text(item),
+              child: InkWell(
+                borderRadius: kRadius,
+                onTap: () => onPick(item),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          item,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Icon(
+                        Icons.arrow_upward_rounded,
+                        size: 18,
+                        color: colors.accent,
+                        semanticLabel: 'Send',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
       ],

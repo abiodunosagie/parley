@@ -1,8 +1,9 @@
 // FILE: app/launch/launch_screen.dart
 // The splash after the native launch screen, on the same background so the hand-off cannot be
-// seen: the two halves of the mark slide in and meet, the name fades up, a short beat, then the
-// router moves on (onboarding, sign-in or the app). Plays once, never loops. With reduce motion
-// on it shows the finished mark briefly instead.
+// seen: the two halves of the mark slide in and meet, the name fades up, the finished mark holds
+// for a moment, then the router moves on (onboarding, sign-in or the app). Plays once, never
+// loops, and only starts once the first frame is on screen so none of it is lost to a slow cold
+// start. With reduce motion on it shows the finished mark briefly instead.
 
 import 'dart:async';
 
@@ -22,31 +23,46 @@ class LaunchScreen extends ConsumerStatefulWidget {
 
 class _LaunchScreenState extends ConsumerState<LaunchScreen>
     with SingleTickerProviderStateMixin {
-  // 0 to 0.6: the halves meet. 0.45 to 0.8: the name fades up. Then a beat before moving on.
+  // 0 to 0.65: the halves meet. 0.5 to 0.9: the name fades up. Then a short hold on the
+  // finished mark before moving on.
   late final _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1500),
+    duration: const Duration(milliseconds: 1600),
   );
   late final _meet = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0, 0.6, curve: Curves.easeOutCubic),
+    curve: const Interval(0, 0.65, curve: Curves.easeOutCubic),
   );
   late final _name = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.45, 0.8, curve: Curves.easeOut),
+    curve: const Interval(0.5, 0.9, curve: Curves.easeOut),
   );
   Timer? _hold;
+  var _started = false;
+
+  static const _holdFinished = Duration(milliseconds: 450);
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_controller.isAnimating || _controller.isCompleted) return;
+    if (_started) return;
+    _started = true;
     if (MediaQuery.disableAnimationsOf(context)) {
       _controller.value = 1;
-      _hold = Timer(const Duration(milliseconds: 500), _finish);
-    } else {
-      _controller.forward().whenComplete(_finish);
+      _hold = Timer(const Duration(milliseconds: 700), _finish);
+      return;
     }
+    // The first frames of a cold start are slow (the engine is still warming up). Starting the
+    // clock now would spend most of the animation before anything is on screen, so it starts
+    // once the first frame has really been drawn, plus a breath.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hold = Timer(const Duration(milliseconds: 120), () {
+        if (!mounted) return;
+        _controller.forward().whenComplete(() {
+          _hold = Timer(_holdFinished, _finish);
+        });
+      });
+    });
   }
 
   void _finish() {

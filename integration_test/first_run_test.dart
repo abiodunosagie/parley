@@ -37,10 +37,14 @@ void main() {
     );
     Future<void> shot(String name) => binding.takeScreenshot('first_run_$name');
 
-    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 700));
     await shot('launch_meeting');
-    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pump(const Duration(milliseconds: 1200));
     await shot('launch_done');
+    // The splash holds the finished mark on a timer, so move the clock on rather than settle.
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
     await tester.pumpAndSettle();
     for (var page = 1; page <= 4; page++) {
       await tester.pump(const Duration(milliseconds: 1800));

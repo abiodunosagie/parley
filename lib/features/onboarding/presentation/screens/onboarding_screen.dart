@@ -1,8 +1,8 @@
 // FILE: features/onboarding/presentation/screens/onboarding_screen.dart
-// The welcome pages, shown once per install before sign-in. Three of them play a real exchange
-// (asking with web search, a PDF with its page cited, the agent using tools); the last is where
-// the two halves meet. The halves across the top are the progress: they close in page by page.
-// Skip or Get started both mark the pages seen, and the router moves on to sign-in.
+// The welcome pages, shown once per install before sign-in. The mark meets once at the top and
+// then stays still. Each of the four pages plays a real exchange: asking with web search, a PDF
+// with its page cited, the agent using tools, and where your conversations go. Skip or Get
+// started both mark the pages seen, and the router moves on to sign-in.
 // This widget only owns the PageController and the current page.
 
 import 'package:flutter/material.dart';
@@ -10,9 +10,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/dimens.dart';
 import '../../../../core/theme/parley_colors.dart';
+import '../../../../core/widgets/parley_mark.dart';
 import '../providers/onboarding_controller.dart';
 import '../widgets/exchange.dart';
-import '../widgets/meeting_progress.dart';
 import '../widgets/reveal.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -77,8 +77,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ),
     (
       title: 'You and Claude,\nturn by turn.',
-      body: 'Your conversations stay on this phone. You can delete your account at any time.',
-      exchange: [],
+      body: 'Create an account or sign in, and start with anything.',
+      exchange: [
+        YouSaid('Where do my conversations go?'),
+        ParleyLabel(),
+        ParleySaid(
+          'They stay on this phone, saved per account. The Claude key never leaves Parley’s server, and you can delete your account any time.',
+        ),
+      ],
     ),
   ];
 
@@ -109,27 +115,40 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: SizedBox(
-                height: 48,
-                child: _last
-                    ? null
-                    : TextButton(onPressed: _finish, child: const Text('Skip')),
+            SizedBox(
+              height: 48,
+              child: Row(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 24),
+                    child: Text(
+                      '${_current + 1} of ${_content.length}',
+                      style: TextStyle(
+                        color: colors.muted,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  if (!_last)
+                    TextButton(onPressed: _finish, child: const Text('Skip')),
+                ],
               ),
             ),
-            // On the last page the met halves grow into the middle of the screen: the mark,
-            // the moment the welcome has been building to.
-            TweenAnimationBuilder<double>(
-              tween: Tween(end: _last ? 1 : 0),
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 650),
-              curve: Curves.easeOutCubic,
-              builder: (context, grow, _) => MeetingProgress(
-                progress: _current / (_content.length - 1),
-                size: 132 + 56 * grow,
-                height: 132 + 248 * grow,
+            // The mark plays its meeting once, as the welcome opens, then stays still on every
+            // page: one constant, like the splash before it.
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Center(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(
+                    begin: MediaQuery.disableAnimationsOf(context) ? 1 : 0,
+                    end: 1,
+                  ),
+                  duration: const Duration(milliseconds: 1000),
+                  curve: Curves.easeOutCubic,
+                  builder: (_, meet, _) => ParleyMark(size: 88, meet: meet),
+                ),
               ),
             ),
             Expanded(
@@ -146,7 +165,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         constraints: BoxConstraints(minHeight: box.maxHeight),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          // The exchange sits up under the halves; the words sit low, near the
+                          // The exchange sits up under the mark; the words sit low, near the
                           // thumb and the button, so each page reads top to bottom like a turn.
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
