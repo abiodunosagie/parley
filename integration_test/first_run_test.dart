@@ -3,7 +3,6 @@
 // it afterwards), with the command in test_driver/integration_test.dart and
 // --target=integration_test/first_run_test.dart. Images go to build/first_run/ for review.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
