@@ -26,10 +26,11 @@ class _Flaky implements AgentRepository {
     required List<Map<String, dynamic>> transcript,
     CancelToken? cancel,
   }) async {
-    if (failing)
+    if (failing) {
       throw const AppException(
         'No connection. Check your internet and try again.',
       );
+    }
     return const AgentReply(
       content: [
         {'type': 'text', 'text': 'Done.'},
