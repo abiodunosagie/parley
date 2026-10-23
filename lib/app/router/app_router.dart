@@ -1,10 +1,11 @@
 // FILE: app/router/app_router.dart
-// All navigation, with GoRouter. Signed out: only the sign-in screen. Signed in: the five tabs in
-// a StatefulShellRoute, so each tab keeps its own screen alive; Tools opens its three tools on
-// top of its list. The router re-checks the
-// redirect every time the signed-in user changes, so signing in or out moves you automatically.
+// All navigation, with GoRouter. At launch: the animated splash, then the welcome pages (once per
+// install), then sign-in; app_gate.dart decides. Signed in: the five tabs in a
+// StatefulShellRoute, so each tab keeps its own screen alive; Tools opens its three tools on top
+// of its list. The router re-checks the gate whenever the launch finishes, the welcome pages are
+// done, or the signed-in user changes, so every step moves on by itself.
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -16,37 +17,64 @@ import '../../features/conversation/presentation/screens/look_screen.dart';
 import '../../features/conversation/presentation/screens/read_screen.dart';
 import '../../features/extract/presentation/screens/extract_screen.dart';
 import '../../features/home/presentation/screens/home_shell.dart';
+import '../../features/onboarding/presentation/providers/onboarding_controller.dart';
+import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/home/presentation/screens/tools_screen.dart';
 import '../../features/receipt/presentation/screens/receipt_screen.dart';
 import '../../features/rewrite/presentation/screens/rewrite_screen.dart';
 import '../../features/tasks/presentation/screens/tasks_screen.dart';
+import '../launch/launch_controller.dart';
+import '../launch/launch_screen.dart';
+import 'app_gate.dart';
 import 'app_routes.dart';
 
+/// The launch, welcome and sign-in steps hand over with a soft cross-fade instead of a slide.
+Page<void> _fade(GoRouterState state, Widget child) =>
+    CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: const Duration(milliseconds: 400),
+      transitionsBuilder: (context, animation, _, child) => FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: child,
+      ),
+    );
+
 final routerProvider = Provider<GoRouter>((ref) {
-  // Bumped on every sign-in / sign-out so GoRouter runs the redirect again.
-  final authChanged = ValueNotifier<int>(0);
-  ref.listen(currentUserProvider, (_, _) => authChanged.value++);
-  ref.onDispose(authChanged.dispose);
+  // Bumped whenever a step of the gate changes, so GoRouter runs the redirect again.
+  final gateChanged = ValueNotifier<int>(0);
+  ref.listen(currentUserProvider, (_, _) => gateChanged.value++);
+  ref.listen(launchDoneProvider, (_, _) => gateChanged.value++);
+  ref.listen(onboardingSeenProvider, (_, _) => gateChanged.value++);
+  ref.onDispose(gateChanged.dispose);
 
   final router = GoRouter(
-    initialLocation: AppRoutes.chat,
-    refreshListenable: authChanged,
-    redirect: (context, state) {
+    initialLocation: AppRoutes.launch,
+    refreshListenable: gateChanged,
+    redirect: (context, state) => gateRedirect(
+      location: state.matchedLocation,
+      launchDone: ref.read(launchDoneProvider),
+      onboardingSeen: ref.read(onboardingSeenProvider),
       // The repository's current user is read synchronously, so a stream hiccup never bounces
       // a signed-in person back to the sign-in screen.
-      final signedIn = ref.read(authRepositoryProvider).currentUser != null;
-      final onSignIn = state.matchedLocation == AppRoutes.signIn;
-      if (!signedIn) return onSignIn ? null : AppRoutes.signIn;
-      if (onSignIn) return AppRoutes.chat;
-      return null;
-    },
+      signedIn: ref.read(authRepositoryProvider).currentUser != null,
+    ),
     routes: [
       GoRoute(
+        path: AppRoutes.launch,
+        pageBuilder: (_, state) => _fade(state, const LaunchScreen()),
+      ),
+      GoRoute(
+        path: AppRoutes.welcome,
+        pageBuilder: (_, state) => _fade(state, const OnboardingScreen()),
+      ),
+      GoRoute(
         path: AppRoutes.signIn,
-        builder: (context, state) => const SignInScreen(),
+        pageBuilder: (_, state) => _fade(state, const SignInScreen()),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (context, state, shell) => HomeShell(navigationShell: shell),
+        pageBuilder: (context, state, shell) =>
+            _fade(state, HomeShell(navigationShell: shell)),
         branches: [
           StatefulShellBranch(
             routes: [

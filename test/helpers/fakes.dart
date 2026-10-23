@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:parley/core/speech/speech_service.dart';
 import 'package:parley/core/storage/local_store.dart';
+import 'package:parley/features/onboarding/domain/repositories/onboarding_repository.dart';
 import 'package:parley/features/auth/domain/entities/app_user.dart';
 import 'package:parley/features/auth/domain/repositories/auth_repository.dart';
 import 'package:parley/features/tasks/domain/entities/task.dart';
@@ -19,6 +20,7 @@ class FakeAuth implements AuthRepository {
   final _changes = StreamController<AppUser?>.broadcast();
   final calls = <String>[];
   Object? deleteError;
+  Object? nameError;
 
   void emit(AppUser? user) {
     currentUser = user;
@@ -53,9 +55,31 @@ class FakeAuth implements AuthRepository {
   Future<SignUpOutcome> signUp({
     required String email,
     required String password,
+    required String firstName,
+    required String lastName,
   }) async {
-    calls.add('signUp');
+    calls.add('signUp $firstName $lastName');
     return SignUpOutcome.confirmEmail;
+  }
+
+  @override
+  Future<void> updateName({
+    required String firstName,
+    required String lastName,
+  }) async {
+    calls.add('updateName $firstName $lastName');
+    if (nameError != null) throw nameError!;
+    final user = currentUser;
+    if (user != null) {
+      emit(
+        AppUser(
+          id: user.id,
+          email: user.email,
+          firstName: firstName,
+          lastName: lastName,
+        ),
+      );
+    }
   }
 }
 
@@ -172,5 +196,20 @@ class FakeSpeech implements SpeechService {
     final callbacks = active;
     active = null;
     callbacks?.onDone();
+  }
+}
+
+/// The welcome-pages flag, in memory.
+class MemoryOnboarding implements OnboardingRepository {
+  MemoryOnboarding({this.seen = false});
+
+  @override
+  bool seen;
+  var saves = 0;
+
+  @override
+  Future<void> markSeen() async {
+    saves++;
+    seen = true;
   }
 }

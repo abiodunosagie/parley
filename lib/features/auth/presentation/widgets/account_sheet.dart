@@ -1,6 +1,7 @@
 // FILE: features/auth/presentation/widgets/account_sheet.dart
-// Who is signed in, Sign out, and Delete account (Apple requires in-app account deletion for any
-// app with sign-up). Each step of the sheet is a state of AccountSheetController.
+// Who is signed in (name and email, with a way to add or change the name), Sign out, and Delete
+// account (Apple requires in-app account deletion for any app with sign-up). Each step of the
+// sheet is a state of AccountSheetController.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/parley_colors.dart';
 import '../providers/account_sheet_controller.dart';
 import '../providers/current_user_provider.dart';
+import 'name_editor.dart';
 
 class AccountSheet extends ConsumerWidget {
   const AccountSheet({super.key});
@@ -22,7 +24,7 @@ class AccountSheet extends ConsumerWidget {
     });
     final state = ref.watch(accountSheetControllerProvider);
     final controller = ref.read(accountSheetControllerProvider.notifier);
-    final email = ref.watch(currentUserProvider).value?.email ?? '';
+    final user = ref.watch(currentUserProvider).value;
     final text = Theme.of(context).textTheme;
 
     // While deleting, a tap outside the sheet does nothing; the delete always finishes first.
@@ -30,17 +32,39 @@ class AccountSheet extends ConsumerWidget {
       canPop: state is! DeletingAccount,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+          // Keeps the name boxes above the keyboard.
+          padding: EdgeInsets.fromLTRB(
+            20,
+            24,
+            20,
+            16 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('SIGNED IN AS', style: text.labelSmall),
               const SizedBox(height: 4),
-              Text(email, style: text.bodyLarge),
+              if (user?.hasName ?? false)
+                Text(user!.displayName, style: text.titleMedium),
+              Text(user?.email ?? '', style: text.bodyLarge),
               const SizedBox(height: 20),
               ...switch (state) {
-                AccountOverview() => _overview(context, controller),
+                AccountOverview() => _overview(
+                  context,
+                  controller,
+                  hasName: user?.hasName ?? false,
+                ),
+                EditingName(:final saving, :final error) => [
+                  NameEditor(
+                    firstName: user?.firstName ?? '',
+                    lastName: user?.lastName ?? '',
+                    saving: saving,
+                    error: error,
+                    onSave: controller.saveName,
+                    onCancel: controller.cancelEditName,
+                  ),
+                ],
                 ConfirmingDelete(:final error) => _confirm(
                   context,
                   controller,
@@ -62,8 +86,14 @@ class AccountSheet extends ConsumerWidget {
 
   List<Widget> _overview(
     BuildContext context,
-    AccountSheetController controller,
-  ) => [
+    AccountSheetController controller, {
+    required bool hasName,
+  }) => [
+    OutlinedButton(
+      onPressed: controller.editName,
+      child: Text(hasName ? 'Change name' : 'Add your name'),
+    ),
+    const SizedBox(height: 10),
     OutlinedButton(
       onPressed: () {
         Navigator.pop(context);

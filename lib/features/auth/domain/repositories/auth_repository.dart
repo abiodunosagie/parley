@@ -21,9 +21,18 @@ abstract interface class AuthRepository {
 
   Future<void> signIn({required String email, required String password});
 
+  /// Creates the account with the person's name, which the app greets them by.
   Future<SignUpOutcome> signUp({
     required String email,
     required String password,
+    required String firstName,
+    required String lastName,
+  });
+
+  /// Changes the name on the signed-in account. The signed-in user updates with it.
+  Future<void> updateName({
+    required String firstName,
+    required String lastName,
   });
 
   /// Signs out. `everywhere: false` only forgets the session on this phone, which never fails

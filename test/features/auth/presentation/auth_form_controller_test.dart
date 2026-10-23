@@ -50,4 +50,15 @@ void main() {
       expect(container.read(authFormControllerProvider).mode, AuthMode.signUp);
     },
   );
+
+  test('sign-up sends the cleaned first and last name', () async {
+    form().toggleMode();
+    await form().submit(
+      email: 'a@example.com',
+      password: 'secret123',
+      firstName: '  Ada ',
+      lastName: 'Love   lace',
+    );
+    expect(auth.calls, ['signUp Ada Love lace']);
+  });
 }

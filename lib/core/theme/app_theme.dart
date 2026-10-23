@@ -28,6 +28,14 @@ ThemeData parleyTheme(Brightness brightness) {
     extensions: [c],
     dividerColor: c.line,
     textTheme: TextTheme(
+      // Onboarding headlines.
+      headlineMedium: TextStyle(
+        fontSize: 32,
+        height: 1.15,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -1,
+        color: c.ink,
+      ),
       headlineSmall: TextStyle(
         fontSize: 26,
         fontWeight: FontWeight.w800,
@@ -36,6 +44,7 @@ ThemeData parleyTheme(Brightness brightness) {
       ),
       bodyLarge: TextStyle(fontSize: 16, height: 1.45, color: c.ink),
       bodyMedium: TextStyle(fontSize: 15, height: 1.4, color: c.muted),
+      bodySmall: TextStyle(fontSize: 13, height: 1.4, color: c.muted),
       labelSmall: TextStyle(
         fontSize: 11,
         letterSpacing: 0.8,

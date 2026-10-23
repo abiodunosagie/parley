@@ -17,6 +17,8 @@ class AccountButton extends StatelessWidget {
         context: context,
         // No drag-to-close, so a delete in progress cannot be swiped away halfway.
         enableDrag: false,
+        // Lets the sheet grow above the keyboard while the name is edited.
+        isScrollControlled: true,
         builder: (_) => const AccountSheet(),
       ),
     );

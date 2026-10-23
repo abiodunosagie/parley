@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/error_log.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/validators/auth_validators.dart';
 
 enum AuthMode { signIn, signUp }
 
@@ -69,9 +70,14 @@ class AuthFormController extends Notifier<AuthFormState> {
   void togglePasswordVisibility() =>
       state = state.copyWith(obscurePassword: !state.obscurePassword);
 
-  /// Signs in or creates the account. On success the router moves to the app by itself,
-  /// because it listens to the signed-in user.
-  Future<void> submit({required String email, required String password}) async {
+  /// Signs in or creates the account (with [firstName] and [lastName], which only sign-up uses).
+  /// On success the router moves to the app by itself, because it listens to the signed-in user.
+  Future<void> submit({
+    required String email,
+    required String password,
+    String firstName = '',
+    String lastName = '',
+  }) async {
     if (state.busy) return;
     state = state.copyWith(status: const Submitting());
     final repository = ref.read(authRepositoryProvider);
@@ -83,6 +89,8 @@ class AuthFormController extends Notifier<AuthFormState> {
         final outcome = await repository.signUp(
           email: email,
           password: password,
+          firstName: cleanName(firstName),
+          lastName: cleanName(lastName),
         );
         if (!ref.mounted) return;
         state = state.copyWith(

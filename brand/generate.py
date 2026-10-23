@@ -52,6 +52,15 @@ def symbols():
     write('parley-adaptive-monochrome.svg', svg(256, 256, mark('#fff', '#fff', 1.05)))
 
 
+def splash():
+    """Launch screen marks. iOS and older Android centre the image as is; Android 12+ crops the
+    splash icon to a circle two thirds of its size, so that one keeps the mark well inside."""
+    write('splash-light.svg', svg(256, 256, mark(GREEN, MINT, 0.9)))
+    write('splash-dark.svg', svg(256, 256, mark(PAPER, MINT, 0.9)))
+    write('splash-android12-light.svg', svg(256, 256, mark(GREEN, MINT, 0.62)))
+    write('splash-android12-dark.svg', svg(256, 256, mark(PAPER, MINT, 0.62)))
+
+
 def lockups():
     size, sym, gap = 150, 200, 34
     x0, _, x1, y1 = glyph_bounds(WORD, 'parley', size)
@@ -138,6 +147,7 @@ def png(svg_name, out, size):
 if __name__ == '__main__':
     PNG.mkdir(parents=True, exist_ok=True)
     symbols()
+    splash()
     lockups()
     BRAND = ROOT / 'brand'
     (BRAND / 'banner.svg').write_text(banner(dark=False))
@@ -148,4 +158,12 @@ if __name__ == '__main__':
     png('parley-adaptive-monochrome.svg', PNG / 'adaptive-monochrome-1024.png', (1024, 1024))
     png('social-preview.svg', BRAND / 'banner.png', (1280, 640))
     png('parley-lockup.svg', PNG / 'lockup-1200.png', (1200, 464))
+    for name in ['splash-light', 'splash-dark']:
+        png(f'{name}.svg', PNG / f'{name}.png', (768, 768))
+    for name in ['splash-android12-light', 'splash-android12-dark']:
+        png(f'{name}.svg', PNG / f'{name}.png', (1152, 1152))
+    # The native launch screen is plain colour: the app's own splash then animates the mark.
+    # Android 12+ always draws an icon, so it gets a transparent one.
+    from PIL import Image
+    Image.new('RGBA', (1152, 1152), (0, 0, 0, 0)).save(PNG / 'splash-android12-blank.png')
     print('Brand kit written to', KIT)

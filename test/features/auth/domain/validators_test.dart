@@ -18,4 +18,28 @@ void main() {
     expect(validateExistingPassword(''), isNotNull);
     expect(validateExistingPassword('x'), isNull);
   });
+
+  test('names: real names pass, empty, symbols and very long names do not', () {
+    for (final ok in [
+      'Ada',
+      'Mary-Jane',
+      "O'Neil",
+      'José',
+      'Chukwuemeka',
+      'St. John',
+      'Nguyễn',
+    ]) {
+      expect(validateName(ok, which: 'first'), isNull, reason: ok);
+    }
+    expect(validateName('   ', which: 'first'), 'Enter your first name.');
+    expect(validateName('', which: 'last'), 'Enter your last name.');
+    expect(validateName('Ada1', which: 'first'), isNotNull);
+    expect(validateName('<script>', which: 'first'), isNotNull);
+    expect(validateName('-Ada', which: 'first'), isNotNull);
+    expect(validateName('A' * 51, which: 'first'), isNotNull);
+  });
+
+  test('names are saved trimmed with single spaces', () {
+    expect(cleanName('  Mary   Jane '), 'Mary Jane');
+  });
 }

@@ -1,6 +1,7 @@
 // FILE: features/conversation/presentation/screens/chat_screen.dart
 // FEATURE 1 SCREEN: streaming chat, with Claude's reasoning on show and optional web search with
-// cited sources. Example prompts while empty, the conversation otherwise. History in the app bar.
+// cited sources. While empty it greets you by name and offers example prompts; otherwise it shows
+// the conversation. History in the app bar.
 // All logic is in ConversationController (chatControllerProvider).
 
 import 'package:flutter/material.dart';
@@ -8,10 +9,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/widgets/intro_list.dart';
 import '../../../../core/widgets/screen_intro.dart';
+import '../../../auth/presentation/providers/current_user_provider.dart';
 import '../../../home/presentation/widgets/feature_app_bar.dart';
 import '../../domain/entities/conversation_kind.dart';
 import '../providers/conversation_controller.dart';
 import '../widgets/conversation_view.dart';
+import '../widgets/greeting.dart';
 import '../widgets/history_button.dart';
 import '../widgets/web_search_toggle.dart';
 
@@ -29,6 +32,9 @@ class ChatScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(chatControllerProvider);
     final controller = ref.read(chatControllerProvider.notifier);
+    final firstName = ref.watch(
+      currentUserProvider.select((user) => user.value?.firstName ?? ''),
+    );
 
     return Scaffold(
       appBar: FeatureAppBar(
@@ -55,8 +61,8 @@ class ChatScreen extends ConsumerWidget {
           onChanged: controller.setWebSearch,
         ),
         empty: IntroList(
-          header: const ScreenIntro(
-            title: 'Ask anything.',
+          header: ScreenIntro(
+            title: greetingFor(DateTime.now(), firstName),
             body: 'Replies stream in as Claude writes them, with its reasoning one tap away. Turn on web search for anything current.',
           ),
           starters: _starters,

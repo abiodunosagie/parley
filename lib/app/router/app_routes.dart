@@ -2,6 +2,8 @@
 // Every route path in one place, so no widget types a path by hand.
 
 abstract final class AppRoutes {
+  static const launch = '/launch';
+  static const welcome = '/welcome';
   static const signIn = '/sign-in';
   static const chat = '/chat';
   static const look = '/look';

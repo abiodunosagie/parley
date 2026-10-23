@@ -1,0 +1,13 @@
+# Native launch screen for iOS and Android. Plain colour on purpose: the app's own splash
+# (lib/app/launch/launch_screen.dart) then animates the mark once on the same background, so the
+# hand-off is invisible. Rebuild with:  dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#FFFFFF"
+  color_dark: "#0F0E0C"
+  android_12:
+    color: "#FFFFFF"
+    color_dark: "#0F0E0C"
+    image: brand/kit/png/splash-android12-blank.png
+    image_dark: brand/kit/png/splash-android12-blank.png
+  fullscreen: false
+  web: false

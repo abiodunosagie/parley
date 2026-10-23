@@ -10,7 +10,12 @@ import 'package:integration_test/integration_test_driver_extended.dart';
 
 Future<void> main() => integrationDriver(
   onScreenshot: (name, bytes, [args]) async {
-    await File('docs/screenshots/$name.png').writeAsBytes(bytes);
+    // README shots go in docs/screenshots; first-run review shots stay in build/.
+    final file = name.startsWith('first_run_')
+        ? File('build/first_run/${name.substring(10)}.png')
+        : File('docs/screenshots/$name.png');
+    await file.parent.create(recursive: true);
+    await file.writeAsBytes(bytes);
     return true;
   },
 );

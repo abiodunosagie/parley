@@ -8,12 +8,15 @@ import 'package:parley/core/speech/speech_service.dart';
 import 'package:parley/core/storage/local_store.dart';
 import 'package:parley/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:parley/features/auth/domain/entities/app_user.dart';
+import 'package:parley/app/launch/launch_screen.dart';
 import 'package:parley/features/auth/presentation/screens/sign_in_screen.dart';
 import 'package:parley/features/conversation/presentation/screens/chat_screen.dart';
 import 'package:parley/features/conversation/presentation/screens/look_screen.dart';
 import 'package:parley/features/conversation/presentation/screens/read_screen.dart';
 import 'package:parley/features/extract/presentation/screens/extract_screen.dart';
 import 'package:parley/features/home/presentation/screens/tools_screen.dart';
+import 'package:parley/features/onboarding/data/repositories/onboarding_repository_impl.dart';
+import 'package:parley/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:parley/features/receipt/presentation/screens/receipt_screen.dart';
 import 'package:parley/features/rewrite/presentation/screens/rewrite_screen.dart';
 import 'package:parley/features/tasks/data/repositories/task_repository_impl.dart';
@@ -25,6 +28,7 @@ Future<FakeAuth> _pumpApp(
   WidgetTester tester, {
   required bool signedIn,
   required Brightness brightness,
+  MemoryOnboarding? onboarding,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -42,6 +46,9 @@ Future<FakeAuth> _pumpApp(
         taskRepositoryProvider.overrideWithValue(MemoryTasks()),
         localStoreProvider.overrideWithValue(MemoryStore()),
         speechServiceProvider.overrideWithValue(FakeSpeech()),
+        onboardingRepositoryProvider.overrideWithValue(
+          onboarding ?? MemoryOnboarding(seen: true),
+        ),
       ],
       child: const ParleyApp(),
     ),
@@ -51,6 +58,109 @@ Future<FakeAuth> _pumpApp(
 }
 
 void main() {
+  testWidgets('a fresh install: splash once, the welcome pages, then sign-in', (
+    tester,
+  ) async {
+    final onboarding = MemoryOnboarding();
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final auth = FakeAuth();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(auth),
+          accessTokenProvider.overrideWithValue(auth.accessToken),
+          taskRepositoryProvider.overrideWithValue(MemoryTasks()),
+          localStoreProvider.overrideWithValue(MemoryStore()),
+          speechServiceProvider.overrideWithValue(FakeSpeech()),
+          onboardingRepositoryProvider.overrideWithValue(onboarding),
+        ],
+        child: const ParleyApp(),
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(LaunchScreen), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.byType(OnboardingScreen), findsOneWidget);
+    for (var page = 0; page < 3; page++) {
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+    }
+    // The last page only offers Get started.
+    expect(find.text('Skip'), findsNothing);
+    await tester.tap(find.text('Get started'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SignInScreen), findsOneWidget);
+    expect(onboarding.seen, isTrue);
+    expect(onboarding.saves, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the welcome pages fit a small phone with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final auth = FakeAuth();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(auth),
+          accessTokenProvider.overrideWithValue(auth.accessToken),
+          localStoreProvider.overrideWithValue(MemoryStore()),
+          speechServiceProvider.overrideWithValue(FakeSpeech()),
+          onboardingRepositoryProvider.overrideWithValue(MemoryOnboarding()),
+        ],
+        child: const ParleyApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (var page = 0; page < 4; page++) {
+      expect(tester.takeException(), isNull, reason: 'page ${page + 1}');
+      if (page < 3) {
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+      }
+    }
+  });
+
+  testWidgets(
+    'Skip on the first page goes straight to sign-in and is remembered',
+    (tester) async {
+      final onboarding = MemoryOnboarding();
+      await _pumpApp(
+        tester,
+        signedIn: false,
+        brightness: Brightness.light,
+        onboarding: onboarding,
+      );
+      expect(find.byType(OnboardingScreen), findsOneWidget);
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SignInScreen), findsOneWidget);
+      expect(onboarding.seen, isTrue);
+    },
+  );
+
+  testWidgets('creating an account asks for first and last name', (
+    tester,
+  ) async {
+    await _pumpApp(tester, signedIn: false, brightness: Brightness.light);
+    expect(find.text('First name'), findsNothing);
+    await tester.tap(find.text('Create an account'));
+    await tester.pumpAndSettle();
+    expect(find.text('First name'), findsOneWidget);
+    expect(find.text('Last name'), findsOneWidget);
+    await tester.tap(find.text('Create account'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter your first name.'), findsOneWidget);
+    expect(find.text('Enter your last name.'), findsOneWidget);
+  });
+
   for (final brightness in Brightness.values) {
     testWidgets('signed out shows sign-in (${brightness.name})', (
       tester,

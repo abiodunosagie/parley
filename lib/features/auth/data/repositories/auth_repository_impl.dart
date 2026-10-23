@@ -1,6 +1,7 @@
 // FILE: features/auth/data/repositories/auth_repository_impl.dart
-// The Supabase version of AuthRepository: email and password accounts, session refresh, and
-// account deletion through the `delete-account` edge function. Passwords go straight to Supabase
+// The Supabase version of AuthRepository: email and password accounts, the person's name (kept in
+// the account's user metadata), session refresh, and account deletion through the
+// `delete-account` edge function. Passwords go straight to Supabase
 // over HTTPS; the app never stores them. Every Supabase error becomes an AppException with words
 // a person can act on.
 
@@ -22,8 +23,23 @@ class AuthRepositoryImpl implements AuthRepository {
 
   GoTrueClient get _auth => _client.auth;
 
-  static AppUser? _toAppUser(User? user) =>
-      user == null ? null : AppUser(id: user.id, email: user.email ?? '');
+  static const _firstName = 'first_name';
+  static const _lastName = 'last_name';
+
+  static AppUser? _toAppUser(User? user) {
+    if (user == null) return null;
+    String meta(String key) {
+      final value = user.userMetadata?[key];
+      return value is String ? value.trim() : '';
+    }
+
+    return AppUser(
+      id: user.id,
+      email: user.email ?? '',
+      firstName: meta(_firstName),
+      lastName: meta(_lastName),
+    );
+  }
 
   @override
   Stream<AppUser?> watchUser() =>
@@ -42,12 +58,28 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<SignUpOutcome> signUp({
     required String email,
     required String password,
+    required String firstName,
+    required String lastName,
   }) => _guard(() async {
-    final result = await _auth.signUp(email: email.trim(), password: password);
+    final result = await _auth.signUp(
+      email: email.trim(),
+      password: password,
+      data: {_firstName: firstName, _lastName: lastName},
+    );
     return result.session == null
         ? SignUpOutcome.confirmEmail
         : SignUpOutcome.signedIn;
   });
+
+  @override
+  Future<void> updateName({
+    required String firstName,
+    required String lastName,
+  }) => _guard(
+    () => _auth.updateUser(
+      UserAttributes(data: {_firstName: firstName, _lastName: lastName}),
+    ),
+  );
 
   @override
   Future<void> signOut({bool everywhere = true}) async {
