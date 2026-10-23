@@ -7,7 +7,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Parley opens your photo library so you can pick a photo to ask Claude about.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Parley listens while you dictate a message. The sound stays on your phone; only the words you send leave it.</string>
+	<string>Parley listens while you dictate a message. Your phone&apos;s speech recognition turns it into text; Parley&apos;s server only receives the words you choose to send.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Parley turns what you say into text so you can send it to Claude.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

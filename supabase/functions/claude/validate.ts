@@ -4,10 +4,12 @@
 // Pure functions, covered by validate_test.ts.
 import type Anthropic from "npm:@anthropic-ai/sdk@1.1.0";
 import { LIMITS, MODELS, MODES, type Mode, type ModelId } from "./config.ts";
+import { AGENT_TOOLS } from "./schemas.ts";
+import { parseCitation, parseSearchResult } from "./validate_replay.ts";
+import { type Budget, Invalid, isObject, text } from "./validate_shared.ts";
 
 type Message = Anthropic.Beta.BetaMessageParam;
 type Block = Anthropic.Beta.BetaContentBlockParam;
-type Citation = Anthropic.Beta.BetaTextCitationParam;
 
 export type RequestOptions = { webSearch: boolean };
 export type ClaudeRequest = { mode: Mode; model: ModelId; messages: Message[]; options: RequestOptions };
@@ -31,12 +33,7 @@ export const ALLOWED_BLOCKS: Record<Mode, { user: string[]; assistant: string[] 
   agent: { user: ["text", "tool_result"], assistant: ["text", "tool_use", ...THINKING] },
 };
 
-class Invalid extends Error {}
-
-type Budget = { textChars: number; opaqueChars: number; images: number; documents: number };
-
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
+const AGENT_TOOL_NAMES = new Set(AGENT_TOOLS.map((t) => t.name));
 
 const isMode = (v: unknown): v is Mode => typeof v === "string" && (MODES as readonly string[]).includes(v);
 const isModel = (v: unknown): v is ModelId => typeof v === "string" && Object.hasOwn(MODELS, v);
@@ -59,7 +56,7 @@ function parse(body: unknown): ClaudeRequest {
   if (messages.length > LIMITS.maxMessages) throw new Invalid("The conversation is too long. Start a new one.");
   const options = parseOptions(body.options, mode);
 
-  const budget: Budget = { textChars: 0, opaqueChars: 0, images: 0, documents: 0 };
+  const budget: Budget = { textChars: 0, opaqueChars: 0, images: 0, documents: 0, searchResults: 0, citations: 0 };
   const clean = messages.map((message, i) => parseMessage(message, i, mode, budget));
 
   if (budget.images > LIMITS.maxImagesPerRequest) {
@@ -67,7 +64,10 @@ function parse(body: unknown): ClaudeRequest {
   }
   if (budget.documents > LIMITS.maxDocumentsPerRequest) throw new Invalid("Send one document at a time.");
   if (budget.textChars > LIMITS.maxTextChars) throw new Invalid("That is too much text for one request.");
-  if (budget.opaqueChars > LIMITS.maxOpaqueChars) throw new Invalid("The conversation is too long. Start a new one.");
+  if (budget.opaqueChars > LIMITS.maxOpaqueChars || budget.searchResults > LIMITS.maxSearchResults ||
+      budget.citations > LIMITS.maxCitations) {
+    throw new Invalid("The conversation is too long. Start a new one.");
+  }
   return { mode, model, messages: clean, options };
 }
 
@@ -108,6 +108,7 @@ function parseBlock(block: Record<string, unknown>, role: "user" | "assistant", 
       const value = text(block.text, budget);
       // Only Claude's replies carry citations; they go back so later turns keep their sources.
       if (role === "assistant" && Array.isArray(block.citations) && block.citations.length > 0) {
+        budget.citations += block.citations.length;
         return { type: "text", text: value, citations: block.citations.map((c) => parseCitation(c, budget)) };
       }
       return { type: "text", text: value };
@@ -161,7 +162,9 @@ function parseBlock(block: Record<string, unknown>, role: "user" | "assistant", 
     }
 
     case "tool_use":
-      if (typeof block.id !== "string" || typeof block.name !== "string" || !isObject(block.input)) {
+      // Only the phone's own tools: an edited app cannot write calls to tools that do not exist.
+      if (typeof block.id !== "string" || typeof block.name !== "string" || !AGENT_TOOL_NAMES.has(block.name) ||
+          !isObject(block.input)) {
         throw new Invalid("Malformed tool call.");
       }
       budget.textChars += JSON.stringify(block.input).length;
@@ -197,81 +200,6 @@ function parseBlock(block: Record<string, unknown>, role: "user" | "assistant", 
     default:
       throw new Invalid("This message type is not allowed here.");
   }
-}
-
-// The results of one earlier search. The page content is encrypted by Anthropic, so the app can
-// only hand it back, not change it; the API rejects anything that was altered.
-function parseSearchResult(block: Record<string, unknown>, budget: Budget): Block {
-  if (typeof block.tool_use_id !== "string") throw new Invalid("Malformed search result.");
-  const content = block.content;
-  if (isObject(content)) {
-    if (content.type !== "web_search_tool_result_error" || typeof content.error_code !== "string") {
-      throw new Invalid("Malformed search result.");
-    }
-    return {
-      type: "web_search_tool_result",
-      tool_use_id: block.tool_use_id,
-      content: { type: "web_search_tool_result_error", error_code: content.error_code } as Anthropic.Beta.BetaWebSearchToolRequestError,
-    };
-  }
-  if (!Array.isArray(content)) throw new Invalid("Malformed search result.");
-  const results = content.map((r) => {
-    if (!isObject(r) || r.type !== "web_search_result" || typeof r.url !== "string" ||
-        typeof r.title !== "string" || typeof r.encrypted_content !== "string") {
-      throw new Invalid("Malformed search result.");
-    }
-    budget.textChars += r.url.length + r.title.length;
-    budget.opaqueChars += r.encrypted_content.length;
-    return {
-      type: "web_search_result" as const,
-      url: r.url,
-      title: r.title,
-      encrypted_content: r.encrypted_content,
-      page_age: typeof r.page_age === "string" ? r.page_age : null,
-    };
-  });
-  return { type: "web_search_tool_result", tool_use_id: block.tool_use_id, content: results };
-}
-
-// A source Claude cited in an earlier reply: a web page, or a page range of the PDF.
-function parseCitation(value: unknown, budget: Budget): Citation {
-  if (!isObject(value) || typeof value.cited_text !== "string") throw new Invalid("Malformed citation.");
-  const cited = text(value.cited_text, budget);
-  switch (value.type) {
-    case "web_search_result_location":
-      if (typeof value.url !== "string" || typeof value.encrypted_index !== "string") {
-        throw new Invalid("Malformed citation.");
-      }
-      budget.opaqueChars += value.encrypted_index.length;
-      return {
-        type: "web_search_result_location",
-        url: value.url,
-        title: typeof value.title === "string" ? value.title : null,
-        encrypted_index: value.encrypted_index,
-        cited_text: cited,
-      };
-    case "page_location":
-      if (!Number.isInteger(value.document_index) || !Number.isInteger(value.start_page_number) ||
-          !Number.isInteger(value.end_page_number)) {
-        throw new Invalid("Malformed citation.");
-      }
-      return {
-        type: "page_location",
-        cited_text: cited,
-        document_index: value.document_index as number,
-        document_title: typeof value.document_title === "string" ? value.document_title : null,
-        start_page_number: value.start_page_number as number,
-        end_page_number: value.end_page_number as number,
-      };
-    default:
-      throw new Invalid("Malformed citation.");
-  }
-}
-
-function text(value: unknown, budget: { textChars: number }): string {
-  if (typeof value !== "string") throw new Invalid("Text blocks need text.");
-  budget.textChars += value.length;
-  return value;
 }
 
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;

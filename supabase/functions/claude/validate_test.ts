@@ -240,3 +240,36 @@ Deno.test("receipt mode takes a photo, rewrite mode takes only text", () => {
   assertEquals(validateRequest(chat([photo], { mode: "receipt" })).ok, true);
   assertEquals(error(chat([photo], { mode: "rewrite" })), "This message type is not allowed here.");
 });
+
+Deno.test("replayed tool calls must name one of the phone's own tools", () => {
+  const turn = (name: string) => [
+    { role: "user", content: "Add milk" },
+    { role: "assistant", content: [{ type: "tool_use", id: "t1", name, input: {} }] },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "ok" }] },
+  ];
+  assertEquals(validateRequest(chat(turn("add_task"), { mode: "agent" })).ok, true);
+  assertEquals(error(chat(turn("delete_everything"), { mode: "agent" })), "Malformed tool call.");
+});
+
+Deno.test("too many replayed search results are refused", () => {
+  const many = {
+    ...searchReply,
+    content: [
+      searchReply.content[0],
+      {
+        type: "web_search_tool_result",
+        tool_use_id: "srv1",
+        content: Array.from({ length: LIMITS.maxSearchResults + 1 }, (_, i) => ({
+          type: "web_search_result",
+          url: `https://a.example/${i}`,
+          title: "A",
+          encrypted_content: "enc",
+        })),
+      },
+    ],
+  };
+  assertEquals(
+    error(chat([{ role: "user", content: "Weather?" }, many, { role: "user", content: "More" }])),
+    "The conversation is too long. Start a new one.",
+  );
+});

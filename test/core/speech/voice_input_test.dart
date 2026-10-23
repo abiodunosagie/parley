@@ -35,4 +35,31 @@ void main() {
     expect(voice.takeProblem(), contains('microphone'));
     expect(voice.takeProblem(), isNull);
   });
+
+  test(
+    'the final words that arrive just after stopping still land in the box',
+    () async {
+      final speech = FakeSpeech();
+      final text = TextEditingController();
+      final voice = VoiceInput(speech, text);
+      await voice.start();
+      speech.say('call mom');
+      final active = speech.active!;
+      await voice.stop();
+      active.onWords('call mum');
+      expect(text.text, 'call mum');
+    },
+  );
+
+  test(
+    'closing the box while the permission prompt is up closes the mic',
+    () async {
+      final speech = FakeSpeech();
+      final voice = VoiceInput(speech, TextEditingController());
+      final starting = voice.start();
+      voice.dispose();
+      await starting;
+      expect(speech.active, isNull);
+    },
+  );
 }

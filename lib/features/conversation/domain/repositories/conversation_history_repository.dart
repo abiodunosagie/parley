@@ -8,7 +8,7 @@ import '../entities/conversation_kind.dart';
 
 abstract interface class ConversationHistoryRepository {
   /// One feature's saved conversations, newest first.
-  Future<List<SavedSummary>> list(String userId, ConversationKind kind);
+  Future<List<SavedSummary>> history(String userId, ConversationKind kind);
 
   /// Null when it was deleted or cannot be read.
   Future<Conversation?> load(String userId, ConversationKind kind, String id);

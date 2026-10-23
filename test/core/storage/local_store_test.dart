@@ -74,10 +74,18 @@ void main() {
     expect(() => store.read('u1', 'chat', '../../x'), throwsArgumentError);
   });
 
-  test('a corrupt index starts empty instead of failing', () async {
-    final dir = Directory('${root.path}/history/u1/chat')
-      ..createSync(recursive: true);
-    File('${dir.path}/index.json').writeAsStringSync('{not json');
-    expect(await store.list('u1', 'chat'), isEmpty);
+  test('a damaged index is rebuilt from the saved items, not lost', () async {
+    await store.write('u1', 'chat', summary('a', 1), {'n': 1});
+    await store.write('u1', 'chat', summary('b', 2), {'n': 2});
+    File('${root.path}/history/u1/chat/index.json')
+        .writeAsStringSync('{not json');
+    expect([for (final s in await store.list('u1', 'chat')) s.id], ['b', 'a']);
+    // The repaired index was written back, so the next read needs no rebuild.
+    expect([for (final s in await store.list('u1', 'chat')) s.id], ['b', 'a']);
+    expect(await store.read('u1', 'chat', 'a'), {'n': 1});
+  });
+
+  test('"index" can never be an item id', () async {
+    expect(() => store.read('u1', 'chat', 'index'), throwsArgumentError);
   });
 }

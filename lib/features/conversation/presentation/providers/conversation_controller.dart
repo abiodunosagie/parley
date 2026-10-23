@@ -12,11 +12,13 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderOrFamily;
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/errors/error_log.dart';
 import '../../../../core/errors/user_messages.dart';
 import '../../../../core/network/cancel_token.dart';
+import '../../../../core/state/saved_history.dart';
 import '../../../../core/state/selected_model_provider.dart';
 import '../../../auth/presentation/providers/current_user_provider.dart';
 import '../../data/repositories/conversation_history_repository_impl.dart';
@@ -29,7 +31,8 @@ import '../../domain/entities/source.dart';
 import 'conversation_history_provider.dart';
 import 'conversation_state.dart';
 
-class ConversationController extends Notifier<ConversationState> {
+class ConversationController extends Notifier<ConversationState>
+    with SavedHistory<ConversationState> {
   ConversationController(this.kind);
   final ConversationKind kind;
 
@@ -46,7 +49,11 @@ class ConversationController extends Notifier<ConversationState> {
     return const ConversationState();
   }
 
-  String? get _userId => ref.read(currentUserProvider).value?.id;
+  @override
+  String? get historyUserId => ref.read(currentUserIdProvider);
+
+  @override
+  ProviderOrFamily get historyList => conversationHistoryProvider(kind);
 
   void reset() {
     abandonCurrent();
@@ -67,34 +74,44 @@ class ConversationController extends Notifier<ConversationState> {
 
   /// Opens a saved conversation from history, ready to carry on.
   Future<void> open(String id) async {
-    final userId = _userId;
-    if (userId == null) return;
-    final saved = await ref
-        .read(conversationHistoryRepositoryProvider)
-        .load(userId, kind, id);
+    final saved = await loadSaved(
+      (userId) => ref
+          .read(conversationHistoryRepositoryProvider)
+          .load(userId, kind, id),
+    );
     if (!ref.mounted) return;
+    if (saved == null) {
+      // Keep what is on screen; only say the saved one could not be read.
+      state = state.copyWith(
+        notice: () => 'That conversation could not be opened.',
+      );
+      return;
+    }
     abandonCurrent();
-    state = saved == null
-        ? state.copyWith(notice: () => 'That conversation could not be opened.')
-        : ConversationState(
-            id: saved.id,
-            messages: saved.messages,
-            attachment: saved.attachment,
-            model: saved.model,
-            webSearch: saved.webSearch,
-          );
+    state = ConversationState(
+      id: saved.id,
+      messages: saved.messages,
+      attachment: saved.attachment,
+      model: saved.model,
+      webSearch: saved.webSearch,
+    );
   }
 
   /// Deletes a saved conversation. Deleting the one on screen also clears the screen.
   Future<void> deleteSaved(String id) async {
-    final userId = _userId;
-    if (userId == null) return;
-    await ref
-        .read(conversationHistoryRepositoryProvider)
-        .delete(userId, kind, id);
+    final deleted = await changeSaved(
+      (userId) => ref
+          .read(conversationHistoryRepositoryProvider)
+          .delete(userId, kind, id),
+    );
     if (!ref.mounted) return;
-    ref.invalidate(conversationHistoryProvider(kind));
-    if (state.id == id) reset();
+    if (state.id == id) {
+      reset();
+    } else if (!deleted) {
+      state = state.copyWith(
+        notice: () => 'That conversation could not be deleted.',
+      );
+    }
   }
 
   Future<void> send(String text) async {
@@ -180,30 +197,23 @@ class ConversationController extends Notifier<ConversationState> {
   }
 
   Future<void> _save() async {
-    final userId = _userId;
     final id = state.id;
     final model = state.model;
-    if (userId == null || id == null || model == null || state.isEmpty) return;
-    try {
-      await ref
+    if (id == null || model == null || state.isEmpty) return;
+    final conversation = Conversation(
+      id: id,
+      kind: kind,
+      model: model,
+      messages: state.messages,
+      updatedAt: DateTime.now(),
+      attachment: state.attachment,
+      webSearch: state.webSearch,
+    );
+    await changeSaved(
+      (userId) => ref
           .read(conversationHistoryRepositoryProvider)
-          .save(
-            userId,
-            Conversation(
-              id: id,
-              kind: kind,
-              model: model,
-              messages: state.messages,
-              updatedAt: DateTime.now(),
-              attachment: state.attachment,
-              webSearch: state.webSearch,
-            ),
-          );
-      if (ref.mounted) ref.invalidate(conversationHistoryProvider(kind));
-    } catch (e) {
-      // Saving is a convenience: a full disk must not break the conversation on screen.
-      reportError(e, cancelled: false, tag: 'history');
-    }
+          .save(userId, conversation),
+    );
   }
 }
 

@@ -4,11 +4,13 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderOrFamily;
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/errors/error_log.dart';
 import '../../../../core/errors/user_messages.dart';
 import '../../../../core/network/cancel_token.dart';
+import '../../../../core/state/saved_history.dart';
 import '../../../../core/state/selected_model_provider.dart';
 import '../../../auth/presentation/providers/current_user_provider.dart';
 import '../../data/repositories/rewrite_repository_impl.dart';
@@ -25,7 +27,7 @@ class RewriteState {
     this.id,
     this.input = '',
     this.style = RewriteStyle.shorter,
-    this.language = 'French',
+    this.language = defaultRewriteLanguage,
     this.output = '',
     this.status = RewriteStatus.idle,
     this.notice,
@@ -63,7 +65,8 @@ class RewriteState {
   );
 }
 
-class RewriteController extends Notifier<RewriteState> {
+class RewriteController extends Notifier<RewriteState>
+    with SavedHistory<RewriteState> {
   static const _uuid = Uuid();
   CancelToken? _current;
 
@@ -73,7 +76,11 @@ class RewriteController extends Notifier<RewriteState> {
     return const RewriteState();
   }
 
-  String? get _userId => ref.read(currentUserProvider).value?.id;
+  @override
+  String? get historyUserId => ref.read(currentUserIdProvider);
+
+  @override
+  ProviderOrFamily get historyList => rewriteHistoryProvider;
 
   void setStyle(RewriteStyle style) => state = state.copyWith(style: style);
   void setLanguage(String language) =>
@@ -142,9 +149,9 @@ class RewriteController extends Notifier<RewriteState> {
   }
 
   Future<void> open(String id) async {
-    final userId = _userId;
-    if (userId == null) return;
-    final saved = await ref.read(rewriteRepositoryProvider).load(userId, id);
+    final saved = await loadSaved(
+      (userId) => ref.read(rewriteRepositoryProvider).load(userId, id),
+    );
     if (!ref.mounted) return;
     _current?.cancel();
     _current = null;
@@ -161,17 +168,13 @@ class RewriteController extends Notifier<RewriteState> {
   }
 
   Future<void> deleteSaved(String id) async {
-    final userId = _userId;
-    if (userId == null) return;
-    await ref.read(rewriteRepositoryProvider).delete(userId, id);
-    if (!ref.mounted) return;
-    ref.invalidate(rewriteHistoryProvider);
-    if (state.id == id) reset();
+    await changeSaved(
+      (userId) => ref.read(rewriteRepositoryProvider).delete(userId, id),
+    );
+    if (ref.mounted && state.id == id) reset();
   }
 
   Future<void> _save() async {
-    final userId = _userId;
-    if (userId == null) return;
     final rewrite = Rewrite(
       id: _uuid.v4(),
       input: state.input,
@@ -180,14 +183,10 @@ class RewriteController extends Notifier<RewriteState> {
       output: state.output,
       createdAt: DateTime.now(),
     );
-    try {
-      await ref.read(rewriteRepositoryProvider).save(userId, rewrite);
-      if (!ref.mounted) return;
-      state = state.copyWith(id: () => rewrite.id);
-      ref.invalidate(rewriteHistoryProvider);
-    } catch (e) {
-      reportError(e, cancelled: false, tag: 'history');
-    }
+    final saved = await changeSaved(
+      (userId) => ref.read(rewriteRepositoryProvider).save(userId, rewrite),
+    );
+    if (saved && ref.mounted) state = state.copyWith(id: () => rewrite.id);
   }
 }
 

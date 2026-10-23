@@ -5,11 +5,13 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderOrFamily;
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/errors/error_log.dart';
 import '../../../../core/models/claude_model.dart';
 import '../../../../core/network/cancel_token.dart';
+import '../../../../core/state/saved_history.dart';
 import '../../../../core/state/selected_model_provider.dart';
 import '../../../auth/presentation/providers/current_user_provider.dart';
 import '../../data/repositories/agent_history_repository_impl.dart';
@@ -56,7 +58,8 @@ class AgentState {
   );
 }
 
-class AgentController extends Notifier<AgentState> {
+class AgentController extends Notifier<AgentState>
+    with SavedHistory<AgentState> {
   static const _uuid = Uuid();
 
   // Built fresh in build(): Riverpod reruns build() on the same instance when the provider is
@@ -77,7 +80,11 @@ class AgentController extends Notifier<AgentState> {
     return const AgentState();
   }
 
-  String? get _userId => ref.read(currentUserProvider).value?.id;
+  @override
+  String? get historyUserId => ref.read(currentUserIdProvider);
+
+  @override
+  ProviderOrFamily get historyList => agentHistoryProvider;
 
   void stop() => _current?.cancel();
 
@@ -90,13 +97,12 @@ class AgentController extends Notifier<AgentState> {
 
   /// Opens a saved conversation from history, ready to carry on.
   Future<void> open(String id) async {
-    final userId = _userId;
-    if (userId == null) return;
-    final saved = await ref
-        .read(agentHistoryRepositoryProvider)
-        .load(userId, id);
+    final saved = await loadSaved(
+      (userId) => ref.read(agentHistoryRepositoryProvider).load(userId, id),
+    );
     if (!ref.mounted) return;
     if (saved == null) {
+      // Keep what is on screen; only say the saved one could not be read.
       state = state.copyWith(
         notice: () => 'That conversation could not be opened.',
       );
@@ -110,12 +116,10 @@ class AgentController extends Notifier<AgentState> {
 
   /// Deletes a saved conversation. Deleting the one on screen also clears the screen.
   Future<void> deleteSaved(String id) async {
-    final userId = _userId;
-    if (userId == null) return;
-    await ref.read(agentHistoryRepositoryProvider).delete(userId, id);
-    if (!ref.mounted) return;
-    ref.invalidate(agentHistoryProvider);
-    if (state.id == id) reset();
+    await changeSaved(
+      (userId) => ref.read(agentHistoryRepositoryProvider).delete(userId, id),
+    );
+    if (ref.mounted && state.id == id) reset();
   }
 
   Future<void> send(String text) async {
@@ -153,34 +157,21 @@ class AgentController extends Notifier<AgentState> {
   }
 
   Future<void> _save() async {
-    final userId = _userId;
     final id = state.id;
     final model = state.model;
     // Nothing worth saving until Claude has kept at least one turn.
-    if (userId == null ||
-        id == null ||
-        model == null ||
-        _loop.transcript.isEmpty) {
-      return;
-    }
-    try {
-      await ref
-          .read(agentHistoryRepositoryProvider)
-          .save(
-            userId,
-            AgentSession(
-              id: id,
-              model: model,
-              items: state.items,
-              transcript: _loop.transcript,
-              updatedAt: DateTime.now(),
-            ),
-          );
-      if (ref.mounted) ref.invalidate(agentHistoryProvider);
-    } catch (e) {
-      // Saving is a convenience: a full disk must not break the conversation on screen.
-      reportError(e, cancelled: false, tag: 'history');
-    }
+    if (id == null || model == null || _loop.transcript.isEmpty) return;
+    final session = AgentSession(
+      id: id,
+      model: model,
+      items: state.items,
+      transcript: _loop.transcript,
+      updatedAt: DateTime.now(),
+    );
+    await changeSaved(
+      (userId) =>
+          ref.read(agentHistoryRepositoryProvider).save(userId, session),
+    );
   }
 }
 

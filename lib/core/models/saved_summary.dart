@@ -39,3 +39,9 @@ class SavedSummary {
     );
   }
 }
+
+/// [text] on one line and at most [max] characters, for a history title.
+String oneLineTitle(String text, {int max = 60}) {
+  final line = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  return line.length <= max ? line : '${line.substring(0, max - 3)}...';
+}

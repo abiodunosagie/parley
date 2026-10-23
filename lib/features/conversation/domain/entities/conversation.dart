@@ -4,6 +4,7 @@
 import 'package:meta/meta.dart';
 
 import '../../../../core/models/claude_model.dart';
+import '../../../../core/models/saved_summary.dart';
 import 'attachment.dart';
 import 'chat_message.dart';
 import 'conversation_kind.dart';
@@ -36,7 +37,6 @@ class Conversation {
   /// The history title: the first thing you asked, on one line.
   String get title {
     final first = messages.where((m) => m.fromUser).firstOrNull?.text ?? '';
-    final line = first.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return line.length <= 60 ? line : '${line.substring(0, 57)}...';
+    return oneLineTitle(first);
   }
 }

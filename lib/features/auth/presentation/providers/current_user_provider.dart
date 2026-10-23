@@ -15,3 +15,8 @@ final currentUserProvider = StreamProvider<AppUser?>((ref) async* {
   // signed out, so it is skipped instead of clearing the signed-in user.
   yield* repository.watchUser().handleError((Object _) {});
 });
+
+/// Just the signed-in user's id, so per-account lists rebuild only when the account changes.
+final currentUserIdProvider = Provider<String?>(
+  (ref) => ref.watch(currentUserProvider.select((user) => user.value?.id)),
+);

@@ -5,7 +5,6 @@
 
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/media/photo_picker.dart';
@@ -13,17 +12,18 @@ import '../../../../core/models/claude_model.dart';
 import '../../../../core/network/cancel_token.dart';
 import '../../../../core/network/claude_client.dart';
 import '../../../../core/storage/local_store.dart';
+import '../../../../core/storage/saved_collection.dart';
 import '../../domain/entities/receipt.dart';
 import '../../domain/entities/scanned_receipt.dart';
 import '../../domain/repositories/receipt_repository.dart';
 
 class ReceiptRepositoryImpl implements ReceiptRepository {
-  ReceiptRepositoryImpl(this._client, this._picker, this._store);
+  ReceiptRepositoryImpl(this._client, this._picker, LocalStore store)
+    : _saved = SavedCollection(store, 'receipts');
   final ClaudeClient _client;
   final PhotoPicker _picker;
-  final LocalStore _store;
+  final SavedCollection _saved;
 
-  static const _collection = 'receipts';
   static const _photo = 'photo';
 
   @override
@@ -63,35 +63,27 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
   }
 
   @override
-  Future<List<SavedSummary>> history(String userId) =>
-      _store.list(userId, _collection);
+  Future<List<SavedSummary>> history(String userId) => _saved.history(userId);
 
   @override
-  Future<ScannedReceipt?> load(String userId, String id) async {
-    final json = await _store.read(userId, _collection, id);
-    final photo = await _store.readBlob(userId, _collection, id, _photo);
-    if (json == null || photo == null) return null;
-    try {
-      return ScannedReceipt(
-        id: id,
-        photo: photo,
-        photoType: json['photo_type'] as String,
-        receipt: Receipt.fromJson(json['receipt'] as Map<String, dynamic>),
-        scannedAt: DateTime.parse(json['scanned_at'] as String),
-      );
-    } catch (e) {
-      debugPrint('Parley: saved receipt unreadable ($e)');
-      return null;
-    }
-  }
+  Future<ScannedReceipt?> load(String userId, String id) =>
+      _saved.load(userId, id, (json) async {
+        final photo = await _saved.file(userId, id, _photo);
+        if (photo == null) return null;
+        return ScannedReceipt(
+          id: id,
+          photo: photo,
+          photoType: json['photo_type'] as String,
+          receipt: Receipt.fromJson(json['receipt'] as Map<String, dynamic>),
+          scannedAt: DateTime.parse(json['scanned_at'] as String),
+        );
+      });
 
   @override
-  Future<void> save(String userId, ScannedReceipt scan) async {
+  Future<void> save(String userId, ScannedReceipt scan) {
     final r = scan.receipt;
-    await _store.writeBlob(userId, _collection, scan.id, _photo, scan.photo);
-    await _store.write(
+    return _saved.save(
       userId,
-      _collection,
       SavedSummary(
         id: scan.id,
         title: r.merchant.isEmpty ? 'Receipt' : r.merchant,
@@ -105,12 +97,12 @@ class ReceiptRepositoryImpl implements ReceiptRepository {
         'scanned_at': scan.scannedAt.toIso8601String(),
         'receipt': r.toJson(),
       },
+      file: (name: _photo, bytes: scan.photo),
     );
   }
 
   @override
-  Future<void> delete(String userId, String id) =>
-      _store.delete(userId, _collection, id);
+  Future<void> delete(String userId, String id) => _saved.delete(userId, id);
 }
 
 final receiptRepositoryProvider = Provider<ReceiptRepository>(

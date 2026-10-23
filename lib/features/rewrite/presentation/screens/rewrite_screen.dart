@@ -33,18 +33,17 @@ class _RewriteScreenState extends ConsumerState<RewriteScreen> {
     super.dispose();
   }
 
+  /// Opening a saved rewrite also puts its text back in the box.
+  Future<void> _open(String id) async {
+    await ref.read(rewriteControllerProvider.notifier).open(id);
+    final opened = ref.read(rewriteControllerProvider);
+    if (mounted && opened.id == id) _input.text = opened.input;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(rewriteControllerProvider);
     final controller = ref.read(rewriteControllerProvider.notifier);
-    // Opening a saved rewrite puts its text back in the box.
-    ref.listen(rewriteControllerProvider.select((s) => s.id), (previous, next) {
-      final opened = ref.read(rewriteControllerProvider);
-      if (next != null && opened.input != _input.text.trim()) {
-        _input.text = opened.input;
-      }
-    });
-
     return Scaffold(
       appBar: FeatureAppBar(
         title: 'Rewrite',
@@ -55,7 +54,7 @@ class _RewriteScreenState extends ConsumerState<RewriteScreen> {
             onPressed: () => showHistorySheet(
               context,
               entries: rewriteHistoryProvider,
-              onOpen: controller.open,
+              onOpen: _open,
               onDelete: controller.deleteSaved,
               empty: 'Finished rewrites are kept here.',
             ),

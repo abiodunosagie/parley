@@ -37,7 +37,7 @@ Future<void> showHistorySheet(
   ),
 );
 
-class HistorySheet extends ConsumerWidget {
+class HistorySheet extends ConsumerStatefulWidget {
   const HistorySheet({
     super.key,
     required this.entries,
@@ -54,9 +54,25 @@ class HistorySheet extends ConsumerWidget {
   final ScrollController? scrollController;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HistorySheet> createState() => _HistorySheetState();
+}
+
+class _HistorySheetState extends ConsumerState<HistorySheet> {
+  /// Rows swiped away. They leave the list in the same frame (a Dismissible must), before the
+  /// delete has finished and the list reloads.
+  final _removed = <String>{};
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
-    final list = ref.watch(entries);
+    final list = ref
+        .watch(widget.entries)
+        .whenData(
+          (all) => [
+            for (final e in all)
+              if (!_removed.contains(e.id)) e,
+          ],
+        );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -66,9 +82,11 @@ class HistorySheet extends ConsumerWidget {
         ),
         Expanded(
           child: switch (list) {
-            AsyncData(:final value) when value.isEmpty => _Message(empty),
+            AsyncData(:final value) when value.isEmpty => _Message(
+              widget.empty,
+            ),
             AsyncData(:final value) => ListView.separated(
-              controller: scrollController,
+              controller: widget.scrollController,
               itemCount: value.length,
               separatorBuilder: (_, _) =>
                   Divider(height: 1, color: colors.line),
@@ -77,7 +95,10 @@ class HistorySheet extends ConsumerWidget {
                 return Dismissible(
                   key: ValueKey(entry.id),
                   direction: DismissDirection.endToStart,
-                  onDismissed: (_) => onDelete(entry.id),
+                  onDismissed: (_) {
+                    setState(() => _removed.add(entry.id));
+                    widget.onDelete(entry.id);
+                  },
                   background: Container(
                     color: colors.danger,
                     alignment: Alignment.centerRight,
@@ -104,7 +125,7 @@ class HistorySheet extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    onTap: () => onOpen(entry.id),
+                    onTap: () => widget.onOpen(entry.id),
                   ),
                 );
               },

@@ -1,31 +1,29 @@
 // FILE: features/tasks/data/repositories/agent_history_repository_impl.dart
-// The real AgentHistoryRepository, on the phone's own storage (core/storage/local_store.dart),
-// under the "tasks" collection.
+// The real AgentHistoryRepository, on the phone's own storage
+// (core/storage/saved_collection.dart), under the "tasks" collection.
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/models/claude_model.dart';
 import '../../../../core/storage/local_store.dart';
+import '../../../../core/storage/saved_collection.dart';
 import '../../domain/entities/agent_item.dart';
 import '../../domain/entities/agent_session.dart';
 import '../../domain/repositories/agent_history_repository.dart';
 
 class AgentHistoryRepositoryImpl implements AgentHistoryRepository {
-  AgentHistoryRepositoryImpl(this._store);
-  final LocalStore _store;
-
-  static const _collection = 'tasks';
-
-  @override
-  Future<List<SavedSummary>> list(String userId) =>
-      _store.list(userId, _collection);
+  AgentHistoryRepositoryImpl(LocalStore store)
+    : _saved = SavedCollection(store, 'tasks');
+  final SavedCollection _saved;
 
   @override
-  Future<AgentSession?> load(String userId, String id) async {
-    final json = await _store.read(userId, _collection, id);
-    if (json == null) return null;
-    try {
+  Future<List<SavedSummary>> history(String userId) => _saved.history(userId);
+
+  @override
+  Future<AgentSession?> load(String userId, String id) => _saved.load(
+    userId,
+    id,
+    (json) async {
       final model = ClaudeModel.values.firstWhere((m) => m.id == json['model']);
       return AgentSession(
         id: json['id'] as String,
@@ -40,18 +38,14 @@ class AgentHistoryRepositoryImpl implements AgentHistoryRepository {
             Map<String, dynamic>.from(turn),
         ],
       );
-    } catch (e) {
-      debugPrint('Parley: saved task conversation unreadable ($e)');
-      return null;
-    }
-  }
+    },
+  );
 
   @override
   Future<void> save(String userId, AgentSession session) {
     final steps = session.items.whereType<ToolRan>().length;
-    return _store.write(
+    return _saved.save(
       userId,
-      _collection,
       SavedSummary(
         id: session.id,
         title: session.title,
@@ -71,8 +65,7 @@ class AgentHistoryRepositoryImpl implements AgentHistoryRepository {
   }
 
   @override
-  Future<void> delete(String userId, String id) =>
-      _store.delete(userId, _collection, id);
+  Future<void> delete(String userId, String id) => _saved.delete(userId, id);
 }
 
 final agentHistoryRepositoryProvider = Provider<AgentHistoryRepository>(

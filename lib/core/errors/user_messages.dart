@@ -21,5 +21,7 @@ bool isUnexpected(Object error, {required bool cancelled}) =>
 String? stopReasonNote(String? stopReason) => switch (stopReason) {
   'refusal' => 'Claude declined this request. Try asking a different way.',
   'max_tokens' => 'The reply hit its length limit and was cut short.',
+  'pause_turn' =>
+    'Claude was still searching when the reply ended. Ask it to continue.',
   _ => null,
 };

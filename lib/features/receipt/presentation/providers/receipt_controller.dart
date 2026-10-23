@@ -1,15 +1,17 @@
 // FILE: features/receipt/presentation/providers/receipt_controller.dart
 // RECEIPT LOGIC: vision plus structured output. Take or pick a photo and it is read straight
-// away into a Receipt with fixed fields, then saved to history. The screen shows one of five
+// away into a Receipt with fixed fields, then saved to history. The screen shows one of four
 // explicit states: empty, scanning, read, or failed (with the photo, to try again).
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderOrFamily;
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/errors/app_exception.dart';
 import '../../../../core/errors/error_log.dart';
 import '../../../../core/errors/user_messages.dart';
 import '../../../../core/network/cancel_token.dart';
+import '../../../../core/state/saved_history.dart';
 import '../../../../core/state/selected_model_provider.dart';
 import '../../../auth/presentation/providers/current_user_provider.dart';
 import '../../data/repositories/receipt_repository_impl.dart';
@@ -43,24 +45,37 @@ class ReceiptFailed extends ReceiptState {
   final String message;
 }
 
-class ReceiptController extends Notifier<ReceiptState> {
+class ReceiptController extends Notifier<ReceiptState>
+    with SavedHistory<ReceiptState> {
   static const _uuid = Uuid();
-  CancelToken? _cancel;
+
+  /// The scan that owns the state. Anything that replaces the screen drops it, so a scan still
+  /// finishing can never overwrite what you opened since.
+  CancelToken? _current;
 
   @override
   ReceiptState build() {
-    ref.onDispose(() => _cancel?.cancel());
+    ref.onDispose(() => _current?.cancel());
     return const ReceiptEmpty();
   }
 
-  String? get _userId => ref.read(currentUserProvider).value?.id;
+  @override
+  String? get historyUserId => ref.read(currentUserIdProvider);
+
+  @override
+  ProviderOrFamily get historyList => receiptHistoryProvider;
+
+  void _abandon() {
+    _current?.cancel();
+    _current = null;
+  }
 
   void reset() {
-    _cancel?.cancel();
+    _abandon();
     state = const ReceiptEmpty();
   }
 
-  void cancel() => _cancel?.cancel();
+  void cancel() => _current?.cancel();
 
   Future<void> pickPhoto(PhotoSource source) async {
     try {
@@ -75,7 +90,8 @@ class ReceiptController extends Notifier<ReceiptState> {
   Future<void> scan(ReceiptPhoto photo) async {
     if (state is ReceiptScanning) return;
     state = ReceiptScanning(photo);
-    final cancel = _cancel = CancelToken();
+    final cancel = _current = CancelToken();
+    bool stillMine() => ref.mounted && identical(_current, cancel);
     try {
       final result = await ref
           .read(receiptRepositoryProvider)
@@ -84,7 +100,8 @@ class ReceiptController extends Notifier<ReceiptState> {
             model: ref.read(selectedModelProvider),
             cancel: cancel,
           );
-      if (!ref.mounted || !identical(_cancel, cancel)) return;
+      if (!stillMine()) return;
+      _current = null;
       switch (result) {
         case Scanned(:final receipt) when receipt.isReceipt:
           final scan = ScannedReceipt(
@@ -95,7 +112,9 @@ class ReceiptController extends Notifier<ReceiptState> {
             scannedAt: DateTime.now(),
           );
           state = ReceiptRead(scan);
-          await _save(scan);
+          await changeSaved(
+            (userId) => ref.read(receiptRepositoryProvider).save(userId, scan),
+          );
         case Scanned():
           state = ReceiptFailed(
             photo,
@@ -109,43 +128,35 @@ class ReceiptController extends Notifier<ReceiptState> {
           );
       }
     } catch (e) {
-      if (ref.mounted && identical(_cancel, cancel)) {
-        state = ReceiptFailed(
-          photo,
-          reportError(e, cancelled: cancel.isCancelled, tag: 'receipt'),
-        );
-      }
+      if (!stillMine()) return;
+      _current = null;
+      state = ReceiptFailed(
+        photo,
+        reportError(e, cancelled: cancel.isCancelled, tag: 'receipt'),
+      );
     }
   }
 
   Future<void> open(String id) async {
-    final userId = _userId;
-    if (userId == null) return;
-    final saved = await ref.read(receiptRepositoryProvider).load(userId, id);
+    final saved = await loadSaved(
+      (userId) => ref.read(receiptRepositoryProvider).load(userId, id),
+    );
     if (!ref.mounted) return;
-    _cancel?.cancel();
+    _abandon();
     state = saved == null
         ? const ReceiptEmpty('That receipt could not be opened.')
         : ReceiptRead(saved);
   }
 
   Future<void> deleteSaved(String id) async {
-    final userId = _userId;
-    if (userId == null) return;
-    await ref.read(receiptRepositoryProvider).delete(userId, id);
+    final deleted = await changeSaved(
+      (userId) => ref.read(receiptRepositoryProvider).delete(userId, id),
+    );
     if (!ref.mounted) return;
-    ref.invalidate(receiptHistoryProvider);
-    if (state case ReceiptRead(:final scan) when scan.id == id) reset();
-  }
-
-  Future<void> _save(ScannedReceipt scan) async {
-    final userId = _userId;
-    if (userId == null) return;
-    try {
-      await ref.read(receiptRepositoryProvider).save(userId, scan);
-      if (ref.mounted) ref.invalidate(receiptHistoryProvider);
-    } catch (e) {
-      reportError(e, cancelled: false, tag: 'history');
+    if (state case ReceiptRead(:final scan) when scan.id == id) {
+      reset();
+    } else if (!deleted && state is ReceiptEmpty) {
+      state = const ReceiptEmpty('That receipt could not be deleted.');
     }
   }
 }

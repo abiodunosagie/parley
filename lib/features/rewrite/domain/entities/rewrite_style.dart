@@ -23,6 +23,9 @@ enum RewriteStyle {
       values.asNameMap()[value] ?? RewriteStyle.shorter;
 }
 
+/// The language Translate starts on.
+const defaultRewriteLanguage = 'French';
+
 /// Languages offered for [RewriteStyle.translate].
 const rewriteLanguages = [
   'English',

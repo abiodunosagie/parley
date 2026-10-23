@@ -36,18 +36,21 @@ Comp: EUR 55k to 70k + equity. 3+ years shipping mobile apps. Applications close
     super.dispose();
   }
 
+  /// Opening a saved job post also puts its text back in the box.
+  Future<void> _open(String id) async {
+    await ref.read(extractControllerProvider.notifier).open(id);
+    if (!mounted) return;
+    if (ref.read(extractControllerProvider)
+        case ExtractDone(:final input, id: final shown) when shown == id) {
+      _input.text = input;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(extractControllerProvider);
     final controller = ref.read(extractControllerProvider.notifier);
     final busy = state is Extracting;
-    // Opening a saved job post puts its text back in the box.
-    ref.listen(extractControllerProvider, (previous, next) {
-      if (next is ExtractDone && next.input != _input.text.trim()) {
-        _input.text = next.input;
-      }
-    });
-
     return Scaffold(
       appBar: FeatureAppBar(
         title: 'Extract',
@@ -58,7 +61,7 @@ Comp: EUR 55k to 70k + equity. 3+ years shipping mobile apps. Applications close
             onPressed: () => showHistorySheet(
               context,
               entries: extractHistoryProvider,
-              onOpen: controller.open,
+              onOpen: _open,
               onDelete: controller.deleteSaved,
               empty: 'Job posts you extract are kept here.',
             ),

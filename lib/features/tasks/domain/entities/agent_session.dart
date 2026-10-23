@@ -5,6 +5,7 @@
 import 'package:meta/meta.dart';
 
 import '../../../../core/models/claude_model.dart';
+import '../../../../core/models/saved_summary.dart';
 import 'agent_item.dart';
 
 @immutable
@@ -28,7 +29,6 @@ class AgentSession {
   /// The history title: the first thing you asked, on one line.
   String get title {
     final first = items.whereType<UserSaid>().firstOrNull?.text ?? '';
-    final line = first.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return line.length <= 60 ? line : '${line.substring(0, 57)}...';
+    return oneLineTitle(first);
   }
 }

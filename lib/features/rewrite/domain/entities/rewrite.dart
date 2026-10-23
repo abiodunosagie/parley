@@ -3,6 +3,7 @@
 
 import 'package:meta/meta.dart';
 
+import '../../../../core/models/saved_summary.dart';
 import 'rewrite_style.dart';
 
 @immutable
@@ -24,6 +25,9 @@ class Rewrite {
   final String language;
   final String output;
   final DateTime createdAt;
+
+  /// The history title: what you wrote, on one line.
+  String get title => oneLineTitle(input);
 
   /// "Shorter", or "Translate to French".
   String get label =>

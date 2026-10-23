@@ -3,7 +3,6 @@
 // system prompt makes Claude reply with the rewritten text only), and saves finished rewrites on
 // the phone under the "rewrites" collection.
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/models/claude_model.dart';
@@ -11,15 +10,15 @@ import '../../../../core/network/cancel_token.dart';
 import '../../../../core/network/claude_client.dart';
 import '../../../../core/network/sse.dart';
 import '../../../../core/storage/local_store.dart';
+import '../../../../core/storage/saved_collection.dart';
 import '../../domain/entities/rewrite.dart';
 import '../../domain/repositories/rewrite_repository.dart';
 
 class RewriteRepositoryImpl implements RewriteRepository {
-  RewriteRepositoryImpl(this._client, this._store);
+  RewriteRepositoryImpl(this._client, LocalStore store)
+    : _saved = SavedCollection(store, 'rewrites');
   final ClaudeClient _client;
-  final LocalStore _store;
-
-  static const _collection = 'rewrites';
+  final SavedCollection _saved;
 
   @override
   Stream<RewriteEvent> rewrite({
@@ -51,40 +50,26 @@ class RewriteRepositoryImpl implements RewriteRepository {
   }
 
   @override
-  Future<List<SavedSummary>> history(String userId) =>
-      _store.list(userId, _collection);
+  Future<List<SavedSummary>> history(String userId) => _saved.history(userId);
 
   @override
-  Future<Rewrite?> load(String userId, String id) async {
-    final json = await _store.read(userId, _collection, id);
-    if (json == null) return null;
-    try {
-      return Rewrite.fromJson(json);
-    } catch (e) {
-      debugPrint('Parley: saved rewrite unreadable ($e)');
-      return null;
-    }
-  }
+  Future<Rewrite?> load(String userId, String id) =>
+      _saved.load(userId, id, (json) async => Rewrite.fromJson(json));
 
   @override
-  Future<void> save(String userId, Rewrite rewrite) {
-    final line = rewrite.input.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return _store.write(
-      userId,
-      _collection,
-      SavedSummary(
-        id: rewrite.id,
-        title: line.length <= 60 ? line : '${line.substring(0, 57)}...',
-        subtitle: rewrite.label,
-        updatedAt: rewrite.createdAt,
-      ),
-      rewrite.toJson(),
-    );
-  }
+  Future<void> save(String userId, Rewrite rewrite) => _saved.save(
+    userId,
+    SavedSummary(
+      id: rewrite.id,
+      title: rewrite.title,
+      subtitle: rewrite.label,
+      updatedAt: rewrite.createdAt,
+    ),
+    rewrite.toJson(),
+  );
 
   @override
-  Future<void> delete(String userId, String id) =>
-      _store.delete(userId, _collection, id);
+  Future<void> delete(String userId, String id) => _saved.delete(userId, id);
 }
 
 final rewriteRepositoryProvider = Provider<RewriteRepository>(

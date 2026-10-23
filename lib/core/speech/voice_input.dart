@@ -57,7 +57,12 @@ class VoiceInput extends ChangeNotifier {
     _listening = true;
     notifyListeners();
     final started = await _service.start(callbacks);
-    if (_disposed || started) return;
+    if (_disposed) {
+      // The text box went away while the permission prompt was up: close the mic again.
+      if (started) await _service.stop();
+      return;
+    }
+    if (started) return;
     _listening = false;
     _problem = 'Parley needs microphone and speech recognition access. Turn them on in Settings.';
     notifyListeners();

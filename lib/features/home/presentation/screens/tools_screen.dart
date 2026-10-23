@@ -1,5 +1,5 @@
 // FILE: features/home/presentation/screens/tools_screen.dart
-// The Tools tab: the one-shot features, each a single request with a fixed result. Rewrite
+// The Tools tab: features that are a single request rather than a conversation. Rewrite
 // (streamed text), Receipts (photo to structured fields) and Extract (text to structured fields).
 
 import 'package:flutter/material.dart';

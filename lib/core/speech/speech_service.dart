@@ -3,6 +3,8 @@
 // Nothing you say is sent to Parley's server: only the words, once you send them. One recogniser
 // for the whole app, so starting a new dictation ends the one before.
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
@@ -34,10 +36,28 @@ abstract interface class SpeechService {
   Future<void> stop();
 }
 
+/// One dictation. Its words keep arriving until the recogniser says it is done, because the final
+/// (best) transcript often lands just after you tap stop.
+class _Session {
+  _Session(this.callbacks);
+  final SpeechCallbacks callbacks;
+  final done = Completer<void>();
+  bool replaced = false;
+
+  void finish() {
+    if (done.isCompleted) return;
+    done.complete();
+    callbacks.onDone();
+  }
+}
+
 class DeviceSpeechService implements SpeechService {
   final _speech = SpeechToText();
   bool? _ready;
-  SpeechCallbacks? _active;
+  _Session? _session;
+
+  /// How long to wait for the recogniser to confirm it stopped before treating it as stopped.
+  static const _stopGrace = Duration(seconds: 2);
 
   // Recognisers report loudness on different scales (iOS in negative decibels, Android from
   // about -2 to 10), so each dictation tracks its own quietest and loudest values.
@@ -48,23 +68,23 @@ class DeviceSpeechService implements SpeechService {
     onStatus: (status) {
       if (status == SpeechToText.doneStatus ||
           status == SpeechToText.notListeningStatus) {
-        _finish();
+        _session?.finish();
       }
     },
-    onError: (_) => _finish(),
+    onError: (_) => _session?.finish(),
   );
-
-  void _finish() {
-    final active = _active;
-    _active = null;
-    active?.onDone();
-  }
 
   @override
   Future<bool> start(SpeechCallbacks callbacks) async {
-    if (_active != null) {
+    final previous = _session;
+    if (previous != null && !previous.done.isCompleted) {
+      // Let the last dictation end properly first, so its late "done" cannot end this one.
+      previous.replaced = true;
       await _speech.stop();
-      _finish();
+      await previous.done.future.timeout(
+        _stopGrace,
+        onTimeout: previous.finish,
+      );
     }
     try {
       if (!await _init()) {
@@ -76,17 +96,15 @@ class DeviceSpeechService implements SpeechService {
       _ready = null;
       return false;
     }
-    _active = callbacks;
+    final session = _session = _Session(callbacks);
     _low = double.infinity;
     _high = double.negativeInfinity;
     await _speech.listen(
       onResult: (SpeechRecognitionResult result) {
-        if (identical(_active, callbacks)) {
-          callbacks.onWords(result.recognizedWords);
-        }
+        if (!session.replaced) callbacks.onWords(result.recognizedWords);
       },
       onSoundLevelChange: (level) {
-        if (!identical(_active, callbacks)) return;
+        if (session.done.isCompleted) return;
         if (level < _low) _low = level;
         if (level > _high) _high = level;
         final span = _high - _low;
@@ -107,8 +125,13 @@ class DeviceSpeechService implements SpeechService {
 
   @override
   Future<void> stop() async {
+    final session = _session;
+    if (session == null || session.done.isCompleted) return;
     await _speech.stop();
-    _finish();
+    // The recogniser normally reports "done" itself; never leave the mic button stuck if not.
+    unawaited(
+      session.done.future.timeout(_stopGrace, onTimeout: session.finish),
+    );
   }
 }
 

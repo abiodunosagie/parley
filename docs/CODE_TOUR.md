@@ -13,17 +13,33 @@ lib/
     config/                 build-time settings (Supabase URL + publishable key)
     network/                ClaudeClient (talks to the `claude` edge function), SSE parsing, CancelToken
     errors/                 AppException, the words shown for failures (plain), error_log (logs + words)
-    models/                 the Claude model list
-    state/                  the selected model, shared by every feature
+    models/                 the Claude model list, SavedSummary (one line in a history list)
+    state/                  the selected model; saved_history.dart (history lists + controller mixin)
     session/                the session token and account clean-up hooks (overridden in main.dart)
+    storage/                LocalStore (history on the phone) and SavedCollection (one feature's items)
+    speech/                 on-device dictation: SpeechService and VoiceInput
+    media/                  photo picking and file-type checks shared by Look and Receipts
+    platform/               opening a cited web page in the browser
     supabase/               the one Supabase client, as a provider tests can replace
     theme/                  palette, Material theme, Markdown theme, sizes
-    widgets/                reusable widgets: Composer, StarterButtons, UserBubble, Notice, ...
+    widgets/                Composer (with the mic), HistorySheet, ReasoningPanel, VoiceWave, ...
   features/<feature>/
     domain/                 plain Dart: entities, repository interfaces, services (the logic)
-    data/                   implementations: Supabase, SharedPreferences, notifications, ClaudeClient
+    data/                   implementations: Supabase, local storage, notifications, ClaudeClient
     presentation/           Riverpod controllers (state), screens, feature widgets
 ```
+
+The features, and the Claude API feature each one shows:
+
+| Tab | Feature folder | Claude API feature |
+| --- | --- | --- |
+| Chat | `conversation` | streaming, summarized reasoning, web search with cited sources |
+| Look | `conversation` | vision (a photo on the first message) |
+| Read | `conversation` | PDF documents with citations (page and quote for every claim) |
+| Tasks | `tasks` | tool use: an agent loop whose tools run on the phone |
+| Tools: Rewrite | `rewrite` | streaming text with a fixed instruction |
+| Tools: Receipts | `receipt` | vision plus structured output (a fixed JSON shape) |
+| Tools: Extract | `extract` | structured output from pasted text |
 
 Rules, enforced by `test/architecture_test.dart` on every test run:
 
@@ -41,23 +57,32 @@ Rules, enforced by `test/architecture_test.dart` on every test run:
 State is Riverpod everywhere. Each screen watches one controller, and the rule for its state is:
 
 - a **sealed set of states** when each state carries different data (`ExtractIdle`, `Extracting`,
-  `ExtractDone(job)`, `ExtractFailed(message)`; the account sheet; the sign-in submit status);
+  `ExtractDone(job)`, `ExtractFailed(message)`; the receipt scan; the account sheet; the sign-in
+  submit status);
 - an **immutable class with `copyWith`** when the screen always shows the same fields plus a status
-  (the chat and agent conversations);
+  (the Chat, Look and Read conversations, the Tasks conversation, Rewrite);
 - an **`AsyncNotifier`** when the data loads from storage (the task list), so loading and errors are
   explicit states instead of an empty list.
 
-Widgets keep only widget plumbing such as `TextEditingController` and `AnimationController`.
+Widgets keep only widget plumbing such as `TextEditingController`, `AnimationController` and
+`VoiceInput` (dictation into one text box).
 
-Three small trade-offs, on purpose:
+Every controller that starts a request keeps the `CancelToken` of the request that owns the
+screen. Starting over, opening history or deleting drops it, so a request still finishing can
+never write into what you opened since.
+
+Small trade-offs, on purpose:
 
 - `main.dart` overrides `accessTokenProvider` and `accountCleanupsProvider`. That is how `core/`
-  gets the session token and how deleting an account clears the tasks, without core or auth
-  importing other features.
+  gets the session token and how deleting an account clears the tasks and all saved history,
+  without core or auth importing other features.
 - `ReplyEvent` (domain) mirrors the stream events in `core/network/sse.dart`. The copy keeps the
   conversation logic independent of how the server streams, so the transport can change alone.
 - `PhoneToolActions` lives in `tasks/presentation/providers/`: it connects the domain's
   `ToolActions` to the live task list controller, so it is composition glue, not data access.
+- Claude's replies are kept twice: as display fields (text, reasoning, searches, sources) and as
+  `replay`, the turn exactly as the API returned it. The next request sends `replay` back
+  unchanged, because thinking signatures and encrypted search results only work untouched.
 
 ## 1. What happens when you tap Send in Chat
 
@@ -65,29 +90,43 @@ Three small trade-offs, on purpose:
 ChatScreen                                   features/conversation/presentation/screens/chat_screen.dart
   Composer.onSend("Hi")                      core/widgets/composer.dart
     -> ConversationController.send("Hi")    features/conversation/presentation/providers/conversation_controller.dart
-         adds your bubble + an empty reply bubble
+         adds your bubble + an empty reply bubble, locks the conversation to the selected model
          -> ConversationRepository.reply()  features/conversation/data/repositories/conversation_repository_impl.dart
-              -> ClaudeClient.stream(mode: chat)        core/network/claude_client.dart
+              -> ClaudeClient.stream(mode: chat, webSearch: on/off)   core/network/claude_client.dart
                    POST https://<project>.supabase.co/functions/v1/claude
                    Authorization: Bearer <your session token>
                      -> edge function                   supabase/functions/claude/index.ts
                           1. body too big?  2. session real?  3. body valid?  4. under the limits?
-                          5. call Claude, streaming
-                   <- data: {"type":"text","text":"Hel"} ... data: {"type":"done", ...}
-              <- parseSse turns lines into TextDelta / StreamDone   core/network/sse.dart
-         <- mapped to domain ReplyText / ReplyDone
-       each ReplyText appends to the reply bubble -> the screen rebuilds -> text "types out"
+                          5. search budget / document size  6. call Claude, streaming
+                   <- data: {"type":"thinking"} {"type":"search"} {"type":"text"} {"type":"source"}
+                      ... data: {"type":"done","content":[Claude's whole turn]}
+              <- parseSse turns lines into events                core/network/sse.dart
+         <- mapped to domain ReplyThinking / ReplySearch / ReplyText / ReplySource / ReplyDone
+       each event updates the reply bubble -> the screen rebuilds -> reasoning, then text "types out"
+       when done: keep Claude's turn for replay, save the conversation to history
 ```
 
-Look is the same path through `LookController` (a `ConversationController` with the photo), with
-the photo as an image block on your first message (`data/mappers/chat_message_mapper.dart`).
-Photos come from `PhotoRepository`; when one cannot be used the reason shows as the notice.
+Look and Read are the same path through `LookController` and `ReadController`, with the photo
+or the PDF on your first message (`data/mappers/chat_message_mapper.dart`). For Read the server
+turns citations on, so the reply streams `source` events with the page and the quoted words.
 
-## 2. Extract (structured output)
+On the server (`supabase/functions/claude/claude.ts`), a long search turn can come back as
+`pause_turn`; the function resumes it by sending the paused turn back, at most twice, and never
+past three searches in total. A `Meter` records what each request spends as the API reports it,
+and `index.ts` logs it in a `finally`, so a request the app abandons still counts against the
+limits.
+
+## 2. One-request tools: Extract, Receipts, Rewrite
 
 `ExtractController.extract()` calls `ExtractRepository.extractJobPost()`. The server adds
 `output_config.format` with `JOB_POST_SCHEMA` (`supabase/functions/claude/schemas.ts`), which forces
 Claude's answer to be JSON in exactly that shape, so it always parses into a `JobPost`.
+
+Receipts work the same way with a photo and `RECEIPT_SCHEMA`; the app then adds the items up by
+category (`receipt/domain/entities/receipt.dart`) and flags a printed total that does not match.
+
+Rewrite streams like Chat but sends a single instruction (`rewrite/domain/entities/rewrite_style.dart`).
+"Show changes" runs a word-level diff on the phone (`rewrite/domain/services/word_diff.dart`).
 
 ## 3. Tasks (tool use, the agent loop)
 
@@ -95,7 +134,7 @@ The loop itself is plain Dart in `features/tasks/domain/services/agent_loop.dart
 
 ```
 AgentLoop.run("Add milk tomorrow")
-  round 1: AgentRepository.next() -> stop_reason "tool_use": [tool_use list_tasks {}]
+  round 1: AgentRepository.next() -> stop_reason "tool_use": [thinking] [tool_use list_tasks {}]
            ToolExecutor.run("list_tasks") -> {"today": "...", "tasks": []}
            send the result back as a tool_result block
   round 2: [tool_use add_task {title: "Milk", due_date: "2026-10-24", ...}]
@@ -103,27 +142,52 @@ AgentLoop.run("Add milk tomorrow")
   round 3: stop_reason "end_turn": "Added milk for tomorrow."
 ```
 
-`AgentController` (presentation) only turns the loop's progress into screen state. Account
-deletion works the same way: the steps live in `auth/domain/services/delete_account.dart`, and the
-account sheet only shows where they are. The tools are
-declared on the server (`AGENT_TOOLS`), so an edited app cannot add new ones; they run on the phone
-(`domain/services/tool_executor.dart` through `presentation/providers/phone_tool_actions.dart`).
+`AgentController` (presentation) only turns the loop's progress into screen state, including
+Claude's reasoning for each round, and saves the conversation (lines and transcript) so it can be
+reopened and carried on. Account deletion works the same way: the steps live in
+`auth/domain/services/delete_account.dart`, and the account sheet only shows where they are. The
+tools are declared on the server (`AGENT_TOOLS`), so an edited app cannot add new ones; they run
+on the phone (`domain/services/tool_executor.dart` through `presentation/providers/phone_tool_actions.dart`).
 
-## 4. Sign in and navigation
+## 4. History
 
-`app/router/app_router.dart` is the only place that decides which screen shows. Signed out: the
-sign-in screen. Signed in: the four tabs in a `StatefulShellRoute`, each keeping its own screen
-alive. The router re-checks on every sign-in or sign-out. `app/session_reset.dart` clears the
-previous account's conversations when the account changes.
-
-## 5. Tests
+Everything you make is saved on the phone, per account, in the app's support folder
+(`core/storage/local_store.dart`):
 
 ```
-test/core/            network client, SSE parsing, keyboard dismiss
+history/<userId>/<feature>/index.json     what the History sheet lists
+history/<userId>/<feature>/<id>.json      one item, with its own summary (so a damaged index rebuilds)
+history/<userId>/<feature>/<id>/<file>    its photo or PDF
+```
+
+Each feature's history repository is a thin layer over `SavedCollection`
+(`core/storage/saved_collection.dart`). Controllers use the `SavedHistory` mixin
+(`core/state/saved_history.dart`) to open, save and delete, so a storage failure is logged and never
+breaks the screen. Deleting your account deletes the whole `history/<userId>` folder.
+
+## 5. Voice input
+
+The mic in the composer (and in the Rewrite and Extract text boxes) uses the phone's own speech
+recognition (`core/speech/speech_service.dart`). Words appear in the box as you speak while
+`VoiceWave` moves with your voice; nothing is sent until you tap Send.
+
+## 6. Sign in and navigation
+
+`app/router/app_router.dart` is the only place that decides which screen shows. Signed out: the
+sign-in screen. Signed in: the five tabs in a `StatefulShellRoute`, each keeping its own screen
+alive; Tools opens Rewrite, Receipts and Extract on top of its list. The router re-checks on every
+sign-in or sign-out. `app/session_reset.dart` clears the previous account's screens when the
+account changes.
+
+## 7. Tests
+
+```
+test/core/            network client, SSE parsing, keyboard, history store, history sheet, dictation
 test/features/...     mirrors lib/features: entities, mappers, validators, tools, the agent loop,
-                      controllers (chat streaming and races, tasks, sign-in), repositories, delete flow
-test/helpers/         shared fakes (an account system and a task store in memory)
-test/app/             the whole app with the router, signed in and out, every tab, light and dark
+                      word diff, receipts, controllers (chat streaming, history, model lock, races,
+                      receipt scans), repositories, delete flow
+test/helpers/         shared fakes (accounts, tasks, saved history and dictation, all in memory)
+test/app/             the whole app with the router, signed in and out, every tab and tool, light and dark
 test/architecture_test.dart   the layering rules above
-supabase/functions/claude/validate_test.ts   server-side request validation
+supabase/functions/claude/validate_test.ts   server-side request and replay validation
 ```

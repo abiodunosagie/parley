@@ -6,8 +6,10 @@
 //
 // Layout under the app support folder:
 //   history/<userId>/<collection>/index.json      the list a history sheet shows
-//   history/<userId>/<collection>/<id>.json       one saved item
+//   history/<userId>/<collection>/<id>.json       one saved item: {"summary": ..., "data": ...}
 //   history/<userId>/<collection>/<id>/<name>     its photo or PDF
+// Each item keeps its own summary too, so a damaged index is rebuilt from the items instead of
+// losing the whole history.
 
 import 'dart:convert';
 import 'dart:io';
@@ -47,7 +49,10 @@ class LocalStore {
   }
 
   File _item(Directory dir, String id) {
-    if (!_safe.hasMatch(id)) throw ArgumentError.value(id, 'id');
+    // "index" would land on the index file itself.
+    if (!_safe.hasMatch(id) || id == 'index') {
+      throw ArgumentError.value(id, 'id');
+    }
     return File('${dir.path}/$id.json');
   }
 
@@ -58,9 +63,33 @@ class LocalStore {
       final list = jsonDecode(await file.readAsString());
       return [for (final entry in list as List) ?SavedSummary.fromJson(entry)];
     } catch (e) {
-      debugPrint('Parley: history index unreadable, starting empty ($e)');
-      return [];
+      debugPrint('Parley: history index unreadable, rebuilding it ($e)');
+      await file.rename('${file.path}.bak');
+      final rebuilt = await _rebuildIndex(dir);
+      await _writeIndex(dir, rebuilt);
+      return rebuilt;
     }
+  }
+
+  /// The index again, from the summary each saved item carries.
+  Future<List<SavedSummary>> _rebuildIndex(Directory dir) async {
+    final summaries = <SavedSummary>[];
+    await for (final entry in dir.list()) {
+      final name = entry.uri.pathSegments.last;
+      if (entry is! File || !name.endsWith('.json') || name == 'index.json') {
+        continue;
+      }
+      try {
+        final item = jsonDecode(await entry.readAsString());
+        final summary = item is Map
+            ? SavedSummary.fromJson(item['summary'])
+            : null;
+        if (summary != null) summaries.add(summary);
+      } catch (_) {
+        // An unreadable item stays out of the list; the rest of the history survives.
+      }
+    }
+    return summaries;
   }
 
   Future<void> _writeIndex(Directory dir, List<SavedSummary> index) =>
@@ -92,7 +121,9 @@ class LocalStore {
     final file = _item(await _dir(userId, collection), id);
     if (!await file.exists()) return null;
     try {
-      return jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final item =
+          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      return item['data'] as Map<String, dynamic>;
     } catch (e) {
       debugPrint('Parley: saved item unreadable ($e)');
       return null;
@@ -107,7 +138,10 @@ class LocalStore {
     Map<String, dynamic> json,
   ) => _serial(() async {
     final dir = await _dir(userId, collection);
-    await _atomicWrite(_item(dir, summary.id), jsonEncode(json));
+    await _atomicWrite(
+      _item(dir, summary.id),
+      jsonEncode({'summary': summary.toJson(), 'data': json}),
+    );
     final index = await _readIndex(dir)
       ..removeWhere((s) => s.id == summary.id)
       ..add(summary);

@@ -44,7 +44,8 @@ export const EFFORT: Record<Mode, "low" | "medium"> = {
 export const SHOW_THINKING: readonly Mode[] = ["chat", "vision", "document", "agent"];
 
 // Web search is a server tool: Anthropic runs the searches inside the same request. Each search
-// is billed ($10 per 1,000), so one reply may search at most this many times.
+// is billed ($10 per 1,000), so one reply may search at most this many times, resumed rounds
+// included.
 export const WEB_SEARCH_MAX_USES = 3;
 
 export const LIMITS = {
@@ -69,9 +70,18 @@ export const LIMITS = {
   // costs 1,500 to 3,000 input tokens, so the daily token cap stops very long documents.
   maxPdfBase64Chars: 8_000_000,
   maxDocumentsPerRequest: 1,
-  // Opaque data Claude hands back for replay (web search results, signed thinking). Counted
-  // apart from text because it is large and cannot be read or forged.
-  maxOpaqueChars: 1_500_000,
+  // Input tokens one document request may carry, counted before Claude is called. About 25 dense
+  // pages; keeps one PDF from eating a whole day's token budget.
+  maxDocumentInputTokens: 60_000,
+  // Searches are billed apart from tokens: about $0.30 a day per user at most.
+  webSearchesPerUserPerDay: 30,
+  // Opaque data Claude hands back for replay (encrypted search results, thinking signatures,
+  // cited quotes). Counted apart from your own text because it is large and the API checks it;
+  // a few search turns carry a few hundred KB each.
+  maxOpaqueChars: 6_000_000,
+  // Earlier search results and citations sent back for replay.
+  maxSearchResults: 60,
+  maxCitations: 200,
   // Checked from Content-Length before the body is parsed.
   maxBodyBytes: 16_000_000,
 };

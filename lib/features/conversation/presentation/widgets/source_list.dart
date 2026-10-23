@@ -46,6 +46,15 @@ class _SourceTile extends StatelessWidget {
   final int number;
   final Source source;
 
+  Future<void> _open(BuildContext context, String url) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (!await openLink(url)) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('That link could not be opened.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -56,7 +65,7 @@ class _SourceTile extends StatelessWidget {
       borderRadius: kRadius,
       child: InkWell(
         borderRadius: kRadius,
-        onTap: url == null ? null : () => openLink(url),
+        onTap: url == null ? null : () => _open(context, url),
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: Row(

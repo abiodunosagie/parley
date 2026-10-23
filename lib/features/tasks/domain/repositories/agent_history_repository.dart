@@ -6,7 +6,7 @@ import '../../../../core/models/saved_summary.dart';
 import '../entities/agent_session.dart';
 
 abstract interface class AgentHistoryRepository {
-  Future<List<SavedSummary>> list(String userId);
+  Future<List<SavedSummary>> history(String userId);
 
   /// Null when it was deleted or cannot be read.
   Future<AgentSession?> load(String userId, String id);

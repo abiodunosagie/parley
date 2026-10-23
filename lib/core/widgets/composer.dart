@@ -1,5 +1,5 @@
 // FILE: core/widgets/composer.dart
-// The message box at the bottom of chat screens. With an empty box the round button is a mic:
+// The message box at the bottom of Chat, Look, Read and Tasks. With an empty box the round button is a mic:
 // tap it, speak, and your words appear in the box as you say them while a waveform moves with
 // your voice. Tap the button again (or go quiet) to finish, edit if needed, then send. While
 // Claude is replying, the button turns into Stop, which cancels the request.
