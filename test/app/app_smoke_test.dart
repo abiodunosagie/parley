@@ -23,27 +23,24 @@ import 'package:parley/features/tasks/data/repositories/task_repository_impl.dar
 import 'package:parley/features/tasks/presentation/screens/tasks_screen.dart';
 
 import '../helpers/fakes.dart';
-
-/// Steps past the launch splash, which waits for the first frame, plays for 1.6 s, then holds
-/// the finished mark before handing over. Timers need the clock moved, not just frames settled.
-Future<void> _pastLaunch(WidgetTester tester) async {
-  for (var i = 0; i < 12; i++) {
-    await tester.pump(const Duration(milliseconds: 250));
-  }
-  await tester.pumpAndSettle();
-}
+import '../helpers/launch.dart';
 
 Future<FakeAuth> _pumpApp(
   WidgetTester tester, {
-  required bool signedIn,
-  required Brightness brightness,
+  bool signedIn = false,
+  Brightness brightness = Brightness.light,
   MemoryOnboarding? onboarding,
+  Size size = const Size(390, 844),
+  double textScale = 1,
+  bool waitForLaunch = true,
 }) async {
-  tester.view.physicalSize = const Size(390, 844);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   tester.platformDispatcher.platformBrightnessTestValue = brightness;
+  tester.platformDispatcher.textScaleFactorTestValue = textScale;
   addTearDown(tester.view.reset);
   addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   final auth = FakeAuth(
     signedIn ? const AppUser(id: 'u1', email: 'me@example.com') : null,
   );
@@ -62,8 +59,17 @@ Future<FakeAuth> _pumpApp(
       child: const ParleyApp(),
     ),
   );
-  await _pastLaunch(tester);
+  if (waitForLaunch) await pumpPastLaunch(tester);
   return auth;
+}
+
+/// True when a tap at the centre of [finder] would reach it, not something drawn over it.
+bool _tappable(WidgetTester tester, Finder finder) {
+  final box = tester.renderObject<RenderBox>(finder);
+  final centre = box.localToGlobal(box.size.center(Offset.zero));
+  final result = HitTestResult();
+  WidgetsBinding.instance.hitTestInView(result, centre, tester.view.viewId);
+  return result.path.any((entry) => entry.target == box);
 }
 
 void main() {
@@ -71,26 +77,10 @@ void main() {
     tester,
   ) async {
     final onboarding = MemoryOnboarding();
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final auth = FakeAuth();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(auth),
-          accessTokenProvider.overrideWithValue(auth.accessToken),
-          taskRepositoryProvider.overrideWithValue(MemoryTasks()),
-          localStoreProvider.overrideWithValue(MemoryStore()),
-          speechServiceProvider.overrideWithValue(FakeSpeech()),
-          onboardingRepositoryProvider.overrideWithValue(onboarding),
-        ],
-        child: const ParleyApp(),
-      ),
-    );
+    await _pumpApp(tester, onboarding: onboarding, waitForLaunch: false);
     await tester.pump();
     expect(find.byType(LaunchScreen), findsOneWidget);
-    await _pastLaunch(tester);
+    await pumpPastLaunch(tester);
     expect(find.byType(OnboardingScreen), findsOneWidget);
     for (var page = 0; page < 3; page++) {
       await tester.tap(find.text('Continue'));
@@ -109,27 +99,17 @@ void main() {
   testWidgets('the welcome pages fit a small phone with large text', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(320, 568);
-    tester.view.devicePixelRatio = 1;
-    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
-    addTearDown(tester.view.reset);
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    final auth = FakeAuth();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(auth),
-          accessTokenProvider.overrideWithValue(auth.accessToken),
-          localStoreProvider.overrideWithValue(MemoryStore()),
-          speechServiceProvider.overrideWithValue(FakeSpeech()),
-          onboardingRepositoryProvider.overrideWithValue(MemoryOnboarding()),
-        ],
-        child: const ParleyApp(),
-      ),
+    await _pumpApp(
+      tester,
+      onboarding: MemoryOnboarding(),
+      size: const Size(320, 568),
+      textScale: 1.6,
     );
-    await _pastLaunch(tester);
     for (var page = 0; page < 4; page++) {
-      expect(tester.takeException(), isNull, reason: 'page ${page + 1}');
+      final label = 'page ${page + 1}';
+      expect(tester.takeException(), isNull, reason: label);
+      final button = find.text(page < 3 ? 'Continue' : 'Get started');
+      expect(_tappable(tester, button), isTrue, reason: label);
       if (page < 3) {
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
@@ -154,6 +134,52 @@ void main() {
       expect(onboarding.seen, isTrue);
     },
   );
+
+  testWidgets('a quick double tap on Continue moves one page, not two', (
+    tester,
+  ) async {
+    await _pumpApp(tester, onboarding: MemoryOnboarding());
+    await tester.tap(find.text('Continue'));
+    // One frame to start the slide, then most of the way through it.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 of 4'), findsOneWidget);
+  });
+
+  testWidgets('swiping back shows a welcome page finished, not playing again', (
+    tester,
+  ) async {
+    await _pumpApp(tester, onboarding: MemoryOnboarding());
+    await tester.pump(const Duration(seconds: 3));
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    // Drag most of the way back and look at once: a page built fresh would still be invisible.
+    await tester.drag(find.byType(PageView), const Offset(300, 0));
+    await tester.pump(const Duration(milliseconds: 50));
+    final first = find.ancestor(
+      of: find.text('Is the ferry to Cacilhas running today?'),
+      matching: find.byType(Opacity),
+    );
+    expect(tester.widget<Opacity>(first.first).opacity, 1);
+  });
+
+  testWidgets('signing out after creating an account shows Welcome back', (
+    tester,
+  ) async {
+    final auth = await _pumpApp(tester);
+    await tester.tap(find.text('Create an account'));
+    await tester.pumpAndSettle();
+    expect(find.text('First name'), findsOneWidget);
+    auth.emit(const AppUser(id: 'u1', email: 'me@example.com'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatScreen), findsOneWidget);
+    await auth.signOut();
+    await tester.pumpAndSettle();
+    expect(find.text('First name'), findsNothing);
+    expect(find.textContaining('Welcome'), findsOneWidget);
+  });
 
   testWidgets('creating an account asks for first and last name', (
     tester,

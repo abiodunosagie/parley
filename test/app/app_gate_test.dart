@@ -53,4 +53,10 @@ void main() {
     expect(gate(AppRoutes.tasks), isNull);
     expect(gate(AppRoutes.rewrite), isNull);
   });
+
+  test('someone already signed in from an older version never sees the welcome pages', () {
+    expect(gate(AppRoutes.launch, onboardingSeen: false), AppRoutes.chat);
+    expect(gate(AppRoutes.welcome, onboardingSeen: false), AppRoutes.chat);
+    expect(gate(AppRoutes.tasks, onboardingSeen: false), isNull);
+  });
 }

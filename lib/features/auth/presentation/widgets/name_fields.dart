@@ -22,13 +22,13 @@ class NameFields extends StatelessWidget {
   Widget build(BuildContext context) {
     TextFormField field(
       TextEditingController controller, {
-      required String which,
+      required NamePart part,
       required String hint,
       required String autofill,
-      bool focus = false,
+      bool autofocus = false,
     }) => TextFormField(
       controller: controller,
-      autofocus: focus,
+      autofocus: autofocus,
       textCapitalization: TextCapitalization.words,
       autofillHints: [autofill],
       autocorrect: false,
@@ -41,7 +41,7 @@ class NameFields extends StatelessWidget {
       }) => null,
       textInputAction: TextInputAction.next,
       decoration: InputDecoration(hintText: hint),
-      validator: (value) => validateName(value ?? '', which: which),
+      validator: (value) => validateName(value ?? '', part: part),
     );
 
     return Row(
@@ -50,17 +50,17 @@ class NameFields extends StatelessWidget {
         Expanded(
           child: field(
             first,
-            which: 'first',
+            part: NamePart.first,
             hint: 'First name',
             autofill: AutofillHints.givenName,
-            focus: autofocus,
+            autofocus: autofocus,
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: field(
             last,
-            which: 'last',
+            part: NamePart.last,
             hint: 'Last name',
             autofill: AutofillHints.familyName,
           ),

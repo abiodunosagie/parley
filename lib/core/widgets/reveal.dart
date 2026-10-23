@@ -1,6 +1,8 @@
-// FILE: features/onboarding/presentation/widgets/reveal.dart
+// FILE: core/widgets/reveal.dart
 // Fades and lifts its child into place after [delay], once, when it first appears. With reduce
-// motion on, the child is simply there.
+// motion on, the child is simply there. Used by the splash name and the welcome pages.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -22,22 +24,25 @@ class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
     parent: _controller,
     curve: Curves.easeOutCubic,
   );
+  Timer? _delay;
+  var _started = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_controller.isAnimating || _controller.isCompleted) return;
+    // Dependencies change again on rotation or a theme switch; the reveal still plays only once.
+    if (_started) return;
+    _started = true;
     if (MediaQuery.disableAnimationsOf(context)) {
       _controller.value = 1;
     } else {
-      Future.delayed(widget.delay, () {
-        if (mounted) _controller.forward();
-      });
+      _delay = Timer(widget.delay, _controller.forward);
     }
   }
 
   @override
   void dispose() {
+    _delay?.cancel();
     _curve.dispose();
     _controller.dispose();
     super.dispose();

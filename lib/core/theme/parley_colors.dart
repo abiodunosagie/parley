@@ -35,6 +35,9 @@ class ParleyColors extends ThemeExtension<ParleyColors> {
   /// Background of code blocks in Claude's replies.
   final Color code;
 
+  /// The brand mint: the dark-mode accent, and the right half of the mark in both modes.
+  static const mint = Color(0xFF5CC79C);
+
   static const light = ParleyColors(
     background: Color(0xFFFFFFFF),
     ink: Color(0xFF15130F),
@@ -54,7 +57,7 @@ class ParleyColors extends ThemeExtension<ParleyColors> {
     muted: Color(0xFFA29D93),
     line: Color(0xFF2C2A26),
     userBubble: Color(0xFF221F1B),
-    accent: Color(0xFF5CC79C),
+    accent: mint,
     onAccent: Color(0xFF0F0E0C),
     accentSoft: Color(0xFF173328),
     danger: Color(0xFFF2B8B5),

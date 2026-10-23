@@ -1,7 +1,8 @@
 // Drives the real app against the real backend and captures the README screenshots: every tab
 // and tool doing its job. The photo and PDF pickers are swapped for the sample files in
-// fixtures.dart, because a test cannot tap the system pickers. Needs a signed-in Simulator.
-// Run with the command in test_driver/integration_test.dart.
+// fixtures.dart, because a test cannot tap the system pickers. Needs a signed-in Simulator; the
+// welcome pages are marked seen here so the run starts in the app. Run with the command in
+// test_driver/integration_test.dart.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,8 +19,11 @@ import 'package:parley/features/conversation/data/repositories/document_reposito
 import 'package:parley/features/conversation/domain/entities/attachment.dart';
 import 'package:parley/features/conversation/domain/repositories/document_repository.dart';
 import 'package:parley/features/home/presentation/widgets/parley_tab_bar.dart';
+import 'package:parley/features/onboarding/data/repositories/onboarding_repository_impl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../test/helpers/fakes.dart';
+import '../test/helpers/launch.dart';
 import 'fixtures.dart';
 
 class _SamplePhoto extends PhotoPicker {
@@ -49,13 +53,21 @@ void main() {
         ),
         photoPickerProvider.overrideWithValue(_SamplePhoto()),
         documentRepositoryProvider.overrideWithValue(_SamplePdf()),
+        onboardingRepositoryProvider.overrideWithValue(
+          MemoryOnboarding(seen: true),
+        ),
       ],
     );
     container.read(selectedModelProvider.notifier).select(ClaudeModel.sonnet);
     await tester.pumpWidget(
       UncontrolledProviderScope(container: container, child: const ParleyApp()),
     );
-    await tester.pumpAndSettle();
+    await pumpPastLaunch(tester);
+    expect(
+      find.byType(ParleyTabBar),
+      findsOneWidget,
+      reason: 'sign in on the Simulator first',
+    );
 
     Future<void> shot(String name) async {
       FocusManager.instance.primaryFocus?.unfocus();

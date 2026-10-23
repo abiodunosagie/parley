@@ -2,6 +2,7 @@
 //   - domain/ is plain Dart: no Flutter at all, no Riverpod, Supabase, data/ or presentation/.
 //   - a feature reaches another feature only through the shared pieces listed in _sharedAcross.
 //   - core/ never imports a feature.
+//   - from app/, a feature imports only app/router/app_routes.dart (the paths it opens).
 //   - presentation/ reaches data/ only through *_repository_impl.dart (where the providers live).
 //   - no widget or screen talks to Supabase or HTTP directly.
 //   - every file starts with a `// FILE:` header that names its real path.
@@ -83,6 +84,16 @@ void main() {
       _violations(
         lib.where((f) => f.path.startsWith('lib/core/')),
         (l) => l.contains('features/'),
+      ),
+      isEmpty,
+    );
+  });
+
+  test('features use app/ only for the route paths', () {
+    expect(
+      _violations(
+        lib.where((f) => f.path.startsWith('lib/features/')),
+        (l) => l.contains('/app/') && !l.contains('app/router/app_routes.dart'),
       ),
       isEmpty,
     );

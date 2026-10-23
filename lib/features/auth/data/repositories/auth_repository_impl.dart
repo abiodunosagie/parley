@@ -16,6 +16,7 @@ import '../../../../core/supabase/supabase_provider.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/services/delete_account.dart';
+import '../../domain/validators/auth_validators.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl(this._client);
@@ -28,16 +29,20 @@ class AuthRepositoryImpl implements AuthRepository {
 
   static AppUser? _toAppUser(User? user) {
     if (user == null) return null;
-    String meta(String key) {
+    // Metadata can be written straight to the Auth API, past the app's form rules, so a name is
+    // read back through the same rules and dropped if it breaks them.
+    String meta(String key, NamePart part) {
       final value = user.userMetadata?[key];
-      return value is String ? value.trim() : '';
+      if (value is! String) return '';
+      final name = cleanName(value);
+      return validateName(name, part: part) == null ? name : '';
     }
 
     return AppUser(
       id: user.id,
       email: user.email ?? '',
-      firstName: meta(_firstName),
-      lastName: meta(_lastName),
+      firstName: meta(_firstName, NamePart.first),
+      lastName: meta(_lastName, NamePart.last),
     );
   }
 

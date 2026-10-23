@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/dimens.dart';
 import '../../../../core/theme/parley_colors.dart';
 import '../../../../core/widgets/user_bubble.dart';
-import 'reveal.dart';
+import '../../../../core/widgets/reveal.dart';
 
 Duration _step(int i) => Duration(milliseconds: 180 + i * 320);
 
@@ -73,11 +73,9 @@ class ParleyLabel extends StatelessWidget {
     padding: const EdgeInsets.only(top: 18, bottom: 6),
     child: Text(
       'Parley',
-      style: TextStyle(
-        color: context.colors.accent,
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-      ),
+      // The same style as the name over every reply in Chat (claude_turn.dart).
+      style: Theme.of(context).textTheme.bodySmall
+          ?.copyWith(color: context.colors.accent, fontWeight: FontWeight.w700),
     ),
   );
 }
@@ -113,11 +111,8 @@ class StepLine extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                color: muted,
-                fontSize: 13,
-                fontFamily: mono ? 'monospace' : null,
-              ),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(fontFamily: mono ? 'monospace' : null),
             ),
           ),
         ],
@@ -155,10 +150,7 @@ class SourceLine extends StatelessWidget {
                   title,
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                Text(
-                  detail,
-                  style: TextStyle(color: colors.muted, fontSize: 13),
-                ),
+                Text(detail, style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),

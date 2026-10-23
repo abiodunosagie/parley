@@ -15,6 +15,8 @@ void main() {
       overrides: [authRepositoryProvider.overrideWithValue(auth)],
     );
     addTearDown(container.dispose);
+    // The provider is autoDispose; keep it alive across the awaits, as the screen does.
+    container.listen(authFormControllerProvider, (_, _) {});
   });
 
   AuthFormController form() =>

@@ -17,30 +17,38 @@ import 'launch_controller.dart';
 class LaunchScreen extends ConsumerStatefulWidget {
   const LaunchScreen({super.key});
 
+  /// The wait after the first frame before the animation starts.
+  static const firstFrameGrace = Duration(milliseconds: 120);
+
+  /// The animation itself.
+  static const play = Duration(milliseconds: 1600);
+
+  /// How long the finished mark stays before the router moves on.
+  static const holdFinished = Duration(milliseconds: 450);
+
+  /// With reduce motion on: how long the finished mark shows instead.
+  static const reducedMotionHold = Duration(milliseconds: 700);
+
+  /// The whole splash, start to hand-over, for tests that need to step past it.
+  static Duration get total => firstFrameGrace + play + holdFinished;
+
   @override
   ConsumerState<LaunchScreen> createState() => _LaunchScreenState();
 }
 
 class _LaunchScreenState extends ConsumerState<LaunchScreen>
     with SingleTickerProviderStateMixin {
-  // 0 to 0.65: the halves meet. 0.5 to 0.9: the name fades up. Then a short hold on the
-  // finished mark before moving on.
   late final _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1600),
-  );
-  late final _meet = CurvedAnimation(
-    parent: _controller,
-    curve: const Interval(0, 0.65, curve: Curves.easeOutCubic),
-  );
-  late final _name = CurvedAnimation(
-    parent: _controller,
-    curve: const Interval(0.5, 0.9, curve: Curves.easeOut),
+    duration: LaunchScreen.play,
   );
   Timer? _hold;
   var _started = false;
 
-  static const _holdFinished = Duration(milliseconds: 450);
+  // On the one clock: 0 to 0.65 the halves meet, 0.5 to 0.9 the name fades up. The name is not a
+  // separate Reveal because that would start its own clock before the first frame.
+  static const _meet = Interval(0, 0.65, curve: Curves.easeOutCubic);
+  static const _name = Interval(0.5, 0.9, curve: Curves.easeOut);
 
   @override
   void didChangeDependencies() {
@@ -49,17 +57,18 @@ class _LaunchScreenState extends ConsumerState<LaunchScreen>
     _started = true;
     if (MediaQuery.disableAnimationsOf(context)) {
       _controller.value = 1;
-      _hold = Timer(const Duration(milliseconds: 700), _finish);
+      _hold = Timer(LaunchScreen.reducedMotionHold, _finish);
       return;
     }
     // The first frames of a cold start are slow (the engine is still warming up). Starting the
     // clock now would spend most of the animation before anything is on screen, so it starts
     // once the first frame has really been drawn, plus a breath.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _hold = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      _hold = Timer(LaunchScreen.firstFrameGrace, () {
         if (!mounted) return;
         _controller.forward().whenComplete(() {
-          _hold = Timer(_holdFinished, _finish);
+          if (mounted) _hold = Timer(LaunchScreen.holdFinished, _finish);
         });
       });
     });
@@ -72,8 +81,6 @@ class _LaunchScreenState extends ConsumerState<LaunchScreen>
   @override
   void dispose() {
     _hold?.cancel();
-    _meet.dispose();
-    _name.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -86,28 +93,31 @@ class _LaunchScreenState extends ConsumerState<LaunchScreen>
       body: Center(
         child: AnimatedBuilder(
           animation: _controller,
-          builder: (context, _) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ParleyMark(size: 112, meet: _meet.value),
-              const SizedBox(height: 18),
-              Opacity(
-                opacity: _name.value,
-                child: Transform.translate(
-                  offset: Offset(0, 10 * (1 - _name.value)),
-                  child: Text(
-                    'parley',
-                    style: TextStyle(
-                      color: colors.ink,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.8,
+          builder: (context, _) {
+            final name = _name.transform(_controller.value);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ParleyMark(size: 112, meet: _meet.transform(_controller.value)),
+                const SizedBox(height: 18),
+                Opacity(
+                  opacity: name,
+                  child: Transform.translate(
+                    offset: Offset(0, 10 * (1 - name)),
+                    child: Text(
+                      'parley',
+                      style: TextStyle(
+                        color: colors.ink,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.8,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            );
+          },
         ),
       ),
     );

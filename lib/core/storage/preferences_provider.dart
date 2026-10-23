@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>(
-  (ref) =>
-      throw StateError('sharedPreferencesProvider is overridden in main.dart'),
+  (ref) => throw StateError(
+    'sharedPreferencesProvider is overridden in main.dart. Tests that '
+    'build ParleyApp override onboardingRepositoryProvider instead.',
+  ),
 );

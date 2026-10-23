@@ -42,11 +42,8 @@ class ClaudeTurn extends StatelessWidget {
           children: [
             Text(
               'Parley',
-              style: TextStyle(
-                color: colors.accent,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: colors.accent, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             if (message.thinking.isNotEmpty)

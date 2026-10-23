@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/parley_colors.dart';
+import '../../domain/entities/app_user.dart';
 import '../providers/account_sheet_controller.dart';
 import '../providers/current_user_provider.dart';
 import 'name_editor.dart';
@@ -31,7 +32,8 @@ class AccountSheet extends ConsumerWidget {
     return PopScope(
       canPop: state is! DeletingAccount,
       child: SafeArea(
-        child: Padding(
+        // Scrolls on a short phone or with large text while the keyboard is up.
+        child: SingleChildScrollView(
           // Keeps the name boxes above the keyboard.
           padding: EdgeInsets.fromLTRB(
             20,
@@ -45,8 +47,8 @@ class AccountSheet extends ConsumerWidget {
             children: [
               Text('SIGNED IN AS', style: text.labelSmall),
               const SizedBox(height: 4),
-              if (user?.hasName ?? false)
-                Text(user!.displayName, style: text.titleMedium),
+              if (user case AppUser(hasName: true, :final displayName))
+                Text(displayName, style: text.titleMedium),
               Text(user?.email ?? '', style: text.bodyLarge),
               const SizedBox(height: 20),
               ...switch (state) {

@@ -17,9 +17,9 @@ import '../../features/conversation/presentation/screens/look_screen.dart';
 import '../../features/conversation/presentation/screens/read_screen.dart';
 import '../../features/extract/presentation/screens/extract_screen.dart';
 import '../../features/home/presentation/screens/home_shell.dart';
+import '../../features/home/presentation/screens/tools_screen.dart';
 import '../../features/onboarding/presentation/providers/onboarding_controller.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
-import '../../features/home/presentation/screens/tools_screen.dart';
 import '../../features/receipt/presentation/screens/receipt_screen.dart';
 import '../../features/rewrite/presentation/screens/rewrite_screen.dart';
 import '../../features/tasks/presentation/screens/tasks_screen.dart';
@@ -29,11 +29,13 @@ import 'app_gate.dart';
 import 'app_routes.dart';
 
 /// The launch, welcome and sign-in steps hand over with a soft cross-fade instead of a slide.
+const _fadeDuration = Duration(milliseconds: 400);
+
 Page<void> _fade(GoRouterState state, Widget child) =>
     CustomTransitionPage<void>(
       key: state.pageKey,
       child: child,
-      transitionDuration: const Duration(milliseconds: 400),
+      transitionDuration: _fadeDuration,
       transitionsBuilder: (context, animation, _, child) => FadeTransition(
         opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
         child: child,

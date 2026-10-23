@@ -17,13 +17,17 @@ String? validateExistingPassword(String password) =>
 const maxNameLength = 50;
 
 // Letters from any alphabet, with the spaces, hyphens, apostrophes and full stops real names use
-// (Mary-Jane, O'Neil, Chukwuemeka, José, St. John).
-final _name = RegExp(r"^\p{L}[\p{L}\p{M} '’.\-]*$", unicode: true);
+// (Mary-Jane, O'Neil, Chukwuemeka, José, St. John), and the zero-width joiners some Persian and
+// Indic names are spelled with.
+final _name = RegExp(r"^\p{L}[\p{L}\p{M} '’.\-\u200C\u200D]*$", unicode: true);
 
-/// [which] is "first" or "last", used in the message.
-String? validateName(String value, {required String which}) {
+enum NamePart { first, last }
+
+/// [part] names the box in the message ("Enter your first name.").
+String? validateName(String value, {required NamePart part}) {
   final name = cleanName(value);
-  if (name.isEmpty) return 'Enter your $which name.';
+  if (name.isEmpty) return 'Enter your ${part.name} name.';
+  // The boxes stop typing at the limit, so this one catches pasted or stored names.
   if (name.length > maxNameLength) {
     return 'Keep it under $maxNameLength characters.';
   }

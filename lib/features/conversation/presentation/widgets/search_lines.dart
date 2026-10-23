@@ -27,7 +27,7 @@ class SearchLines extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'Searched the web for "$query"',
-                      style: TextStyle(color: muted, fontSize: 13),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
                 ],

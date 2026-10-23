@@ -32,8 +32,7 @@ class ToolsScreen extends StatelessWidget {
             title: 'Rewrite',
             before: 'cant make 3pm, can we do tmrw?',
             after: 'I can’t make 3 PM today. Could we meet tomorrow instead?',
-            // Rewrite marks what it changed, so its example does too.
-            struck: true,
+            shows: _Shows.change,
           ),
           const _ToolRow(
             route: AppRoutes.receipts,
@@ -46,12 +45,21 @@ class ToolsScreen extends StatelessWidget {
             title: 'Extract',
             before: 'A messy job post, pasted',
             after: 'Mid-level Mobile Engineer  ·  Brightloop  ·  Remote',
-            last: true,
           ),
+          Divider(height: 1, thickness: 1, color: colors.line),
         ],
       ),
     );
   }
+}
+
+/// How a row's example reads: an edit of the text, or a result made from it.
+enum _Shows {
+  /// The old text crossed out over the new, as Rewrite's "Show changes" does.
+  change,
+
+  /// What went in, then an arrow to what came out.
+  result,
 }
 
 /// One tool: its name, then a small before and after of what it does.
@@ -61,32 +69,26 @@ class _ToolRow extends StatelessWidget {
     required this.title,
     required this.before,
     required this.after,
-    this.struck = false,
-    this.last = false,
+    this.shows = _Shows.result,
   });
 
   final String route;
   final String title;
   final String before;
   final String after;
-
-  /// Show [before] crossed out, as Rewrite's "Show changes" does.
-  final bool struck;
-  final bool last;
+  final _Shows shows;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = Theme.of(context).textTheme;
+    final change = shows == _Shows.change;
     return InkWell(
       onTap: () => context.go(route),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(color: colors.line),
-            bottom: last ? BorderSide(color: colors.line) : BorderSide.none,
-          ),
+          border: Border(top: BorderSide(color: colors.line)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +104,7 @@ class _ToolRow extends StatelessWidget {
               before,
               style: TextStyle(
                 color: colors.muted,
-                decoration: struck ? TextDecoration.lineThrough : null,
+                decoration: change ? TextDecoration.lineThrough : null,
                 decorationColor: colors.muted,
               ),
             ),
@@ -110,7 +112,7 @@ class _ToolRow extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (!struck)
+                if (!change)
                   Padding(
                     padding: const EdgeInsets.only(right: 6, top: 2),
                     child: Icon(

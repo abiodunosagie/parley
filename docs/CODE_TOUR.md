@@ -50,6 +50,8 @@ Rules, enforced by `test/architecture_test.dart` on every test run:
   (`auth/.../current_user_provider.dart`), the account button, and the shared app bar
   (`home/.../feature_app_bar.dart`).
 - `core/` never imports a feature.
+- From `app/`, a feature imports only `app/router/app_routes.dart`, for the paths it opens (the
+  Tools list opens its three tools by route).
 - `presentation/` reaches `data/` only through `*_repository_impl.dart`, where each repository's
   Riverpod provider lives.
 - No screen or widget talks to Supabase or HTTP.

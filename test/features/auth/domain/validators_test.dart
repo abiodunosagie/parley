@@ -28,15 +28,16 @@ void main() {
       'Chukwuemeka',
       'St. John',
       'Nguyễn',
+      'Mohammad\u200Cali',
     ]) {
-      expect(validateName(ok, which: 'first'), isNull, reason: ok);
+      expect(validateName(ok, part: NamePart.first), isNull, reason: ok);
     }
-    expect(validateName('   ', which: 'first'), 'Enter your first name.');
-    expect(validateName('', which: 'last'), 'Enter your last name.');
-    expect(validateName('Ada1', which: 'first'), isNotNull);
-    expect(validateName('<script>', which: 'first'), isNotNull);
-    expect(validateName('-Ada', which: 'first'), isNotNull);
-    expect(validateName('A' * 51, which: 'first'), isNotNull);
+    expect(validateName('   ', part: NamePart.first), 'Enter your first name.');
+    expect(validateName('', part: NamePart.last), 'Enter your last name.');
+    expect(validateName('Ada1', part: NamePart.first), isNotNull);
+    expect(validateName('<script>', part: NamePart.first), isNotNull);
+    expect(validateName('-Ada', part: NamePart.first), isNotNull);
+    expect(validateName('A' * 51, part: NamePart.first), isNotNull);
   });
 
   test('names are saved trimmed with single spaces', () {

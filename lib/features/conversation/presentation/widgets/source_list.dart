@@ -15,7 +15,6 @@ class SourceList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.only(top: 10),
       child: Column(
@@ -23,11 +22,8 @@ class SourceList extends StatelessWidget {
         children: [
           Text(
             'Sources',
-            style: TextStyle(
-              color: colors.muted,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           for (final (i, source) in sources.indexed)
@@ -96,7 +92,7 @@ class _SourceTile extends StatelessWidget {
                       host ?? '"${source.citedText.trim()}"',
                       maxLines: host == null ? 4 : 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: colors.muted, fontSize: 13),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),

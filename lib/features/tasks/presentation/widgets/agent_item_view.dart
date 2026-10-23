@@ -56,10 +56,9 @@ class _ToolLine extends StatelessWidget {
           Expanded(
             child: Text(
               summary,
-              style: TextStyle(
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontFamily: 'monospace',
-                fontSize: 13,
-                color: isError ? colors.danger : colors.muted,
+                color: isError ? colors.danger : null,
               ),
             ),
           ),

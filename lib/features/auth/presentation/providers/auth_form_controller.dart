@@ -1,7 +1,8 @@
 // FILE: features/auth/presentation/providers/auth_form_controller.dart
 // Everything the sign-in screen shows, as one immutable state: which mode the form is in,
 // whether the password is visible, and where the submit stands (idle, sending, failed, or
-// waiting for an email confirmation).
+// waiting for an email confirmation). Made fresh each time the sign-in screen opens (autoDispose),
+// so signing out always lands on "Welcome back", never on a create-account form left from before.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,4 +111,6 @@ class AuthFormController extends Notifier<AuthFormState> {
 }
 
 final authFormControllerProvider =
-    NotifierProvider<AuthFormController, AuthFormState>(AuthFormController.new);
+    NotifierProvider.autoDispose<AuthFormController, AuthFormState>(
+      AuthFormController.new,
+    );

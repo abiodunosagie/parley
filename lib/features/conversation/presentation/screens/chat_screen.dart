@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/widgets/intro_list.dart';
-import '../../../../core/widgets/screen_intro.dart';
 import '../../../auth/presentation/providers/current_user_provider.dart';
 import '../../../home/presentation/widgets/feature_app_bar.dart';
 import '../../domain/entities/conversation_kind.dart';
@@ -61,8 +60,8 @@ class ChatScreen extends ConsumerWidget {
           onChanged: controller.setWebSearch,
         ),
         empty: IntroList(
-          header: ScreenIntro(
-            title: greetingFor(DateTime.now(), firstName),
+          header: GreetingIntro(
+            firstName: firstName,
             body: 'Replies stream in as Claude writes them, with its reasoning one tap away. Turn on web search for anything current.',
           ),
           starters: _starters,

@@ -1,8 +1,10 @@
 // FILE: core/widgets/parley_mark.dart
 // The Parley mark, drawn in code from the same geometry as brand/kit/parley-symbol.svg: two
 // half-discs facing across a gap, the left one a step higher. Crisp at any size, and it follows
-// light and dark mode through the theme colours. [meet] below 1 draws the halves apart, so the
-// welcome screen can animate them coming together.
+// light and dark mode through the theme colours. [ParleyMark.meet] below 1 draws the halves
+// apart; [MeetingMark] plays them coming together once, for the welcome and sign-in screens.
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -12,7 +14,7 @@ class ParleyMark extends StatelessWidget {
   const ParleyMark({super.key, this.size = 40, this.meet = 1});
   final double size;
 
-  /// 0: the halves apart and faint. 1: the finished mark.
+  /// 0: the halves apart and invisible. 1: the finished mark. Between, they slide in and fade up.
   final double meet;
 
   @override
@@ -26,10 +28,35 @@ class ParleyMark extends StatelessWidget {
         painter: _MarkPainter(
           // Light: green and mint. Dark: paper and mint, as in the dark lockup.
           left: dark ? colors.ink : colors.accent,
-          right: dark ? colors.accent : const Color(0xFF5CC79C),
+          right: ParleyColors.mint,
           meet: meet.clamp(0, 1),
         ),
       ),
+    );
+  }
+}
+
+/// The mark playing its meeting once when it first appears, then staying still. With reduce
+/// motion on it is simply the finished mark.
+class MeetingMark extends StatelessWidget {
+  const MeetingMark({
+    super.key,
+    required this.size,
+    this.duration = const Duration(milliseconds: 1000),
+  });
+  final double size;
+  final Duration duration;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(
+        begin: MediaQuery.disableAnimationsOf(context) ? 1 : 0,
+        end: 1,
+      ),
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      builder: (_, meet, _) => ParleyMark(size: size, meet: meet),
     );
   }
 }
@@ -52,13 +79,25 @@ class _MarkPainter extends CustomPainter {
       center: Offset(cx * unit, cy * unit),
       radius: 80 * unit,
     );
-    const half = 3.141592653589793;
     final apart = (1 - meet) * 48;
     Paint fill(Color color) =>
         Paint()..color = color.withValues(alpha: color.a * meet);
+    // Each half is a 180 degree sweep: the left one opens from the bottom, the right from the top.
     canvas
-      ..drawArc(circle(120 - apart, 116), half / 2, half, true, fill(left))
-      ..drawArc(circle(136 + apart, 140), -half / 2, half, true, fill(right));
+      ..drawArc(
+        circle(120 - apart, 116),
+        math.pi / 2,
+        math.pi,
+        true,
+        fill(left),
+      )
+      ..drawArc(
+        circle(136 + apart, 140),
+        -math.pi / 2,
+        math.pi,
+        true,
+        fill(right),
+      );
   }
 
   @override

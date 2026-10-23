@@ -51,15 +51,15 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         );
   }
 
+  /// The scroll padding; the column fills the rest of the height, so the form sits low.
+  static const _padding = EdgeInsets.fromLTRB(24, 32, 24, 16);
+
   @override
   Widget build(BuildContext context) {
     final form = ref.watch(authFormControllerProvider);
     final controller = ref.read(authFormControllerProvider.notifier);
     final creating = form.mode == AuthMode.signUp;
     final status = form.status;
-
-    final text = Theme.of(context).textTheme;
-    final colors = context.colors;
 
     return Scaffold(
       body: SafeArea(
@@ -71,48 +71,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               builder: (context, box) => SingleChildScrollView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+                padding: _padding,
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: box.maxHeight - 48),
+                  constraints: BoxConstraints(
+                    minHeight: box.maxHeight - _padding.vertical,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     // The mark and the welcome up top; the form down by the thumb.
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // The halves meet once as the screen opens, like the launch splash.
-                          TweenAnimationBuilder<double>(
-                            tween: Tween(
-                              begin: MediaQuery.disableAnimationsOf(context)
-                                  ? 1
-                                  : 0,
-                              end: 1,
-                            ),
-                            duration: const Duration(milliseconds: 900),
-                            curve: Curves.easeOutCubic,
-                            builder: (_, meet, _) =>
-                                ParleyMark(size: 56, meet: meet),
-                          ),
-                          const SizedBox(height: 28),
-                          Text(
-                            creating
-                                ? 'Create your\naccount.'
-                                : 'Welcome\nback.',
-                            style: text.headlineMedium,
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            creating
-                                ? 'Your first name is how Parley will greet you.'
-                                : 'Pick up your conversations where you left them.',
-                            style: text.bodyLarge?.copyWith(
-                              color: colors.muted,
-                            ),
-                          ),
-                        ],
-                      ),
+                      _Welcome(creating: creating),
                       Padding(
                         padding: const EdgeInsets.only(top: 40),
                         child: Column(
@@ -157,7 +126,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                                 padding: const EdgeInsets.only(top: 12),
                                 child: Text(
                                   'Check your inbox and confirm your email, then sign in.',
-                                  style: text.bodyMedium,
+                                  style: Theme.of(context).textTheme.bodyMedium,
                                 ),
                               ),
                             const SizedBox(height: 20),
@@ -167,26 +136,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                               onPressed: _submit,
                             ),
                             const SizedBox(height: 8),
-                            // Wraps onto two lines on narrow phones or with large text.
-                            Wrap(
-                              alignment: WrapAlignment.center,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                Text(
-                                  creating
-                                      ? 'Have an account?'
-                                      : 'New to Parley?',
-                                  style: TextStyle(color: colors.muted),
-                                ),
-                                TextButton(
-                                  onPressed: form.busy
-                                      ? null
-                                      : controller.toggleMode,
-                                  child: Text(
-                                    creating ? 'Sign in' : 'Create an account',
-                                  ),
-                                ),
-                              ],
+                            _ModeSwitch(
+                              creating: creating,
+                              onPressed: form.busy
+                                  ? null
+                                  : controller.toggleMode,
                             ),
                           ],
                         ),
@@ -201,4 +155,57 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       ),
     );
   }
+}
+
+/// The mark, meeting once as the screen opens, over the greeting for this mode.
+class _Welcome extends StatelessWidget {
+  const _Welcome({required this.creating});
+  final bool creating;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const MeetingMark(size: 56, duration: Duration(milliseconds: 900)),
+        const SizedBox(height: 28),
+        Text(
+          creating ? 'Create your\naccount.' : 'Welcome\nback.',
+          style: text.headlineMedium,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          creating
+              ? 'Your first name is how Parley will greet you.'
+              : 'Pick up your conversations where you left them.',
+          style: text.bodyLarge?.copyWith(color: context.colors.muted),
+        ),
+      ],
+    );
+  }
+}
+
+/// "New to Parley? Create an account", or the way back to sign-in. Wraps onto two lines on
+/// narrow phones or with large text.
+class _ModeSwitch extends StatelessWidget {
+  const _ModeSwitch({required this.creating, required this.onPressed});
+  final bool creating;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    alignment: WrapAlignment.center,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      Text(
+        creating ? 'Have an account?' : 'New to Parley?',
+        style: TextStyle(color: context.colors.muted),
+      ),
+      TextButton(
+        onPressed: onPressed,
+        child: Text(creating ? 'Sign in' : 'Create an account'),
+      ),
+    ],
+  );
 }

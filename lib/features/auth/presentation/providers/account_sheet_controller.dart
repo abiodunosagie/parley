@@ -1,6 +1,7 @@
 // FILE: features/auth/presentation/providers/account_sheet_controller.dart
 // The account sheet's steps: the overview (name, email, sign out), editing the name, the delete
-// confirmation, deleting, and a failed delete. A fresh controller is made each time the sheet opens (autoDispose).
+// confirmation, deleting, and a failed delete. A fresh controller is made each time the sheet
+// opens (autoDispose).
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
