@@ -1,0 +1,24 @@
+{"id": "A001", "agent": "bug-hunter", "result": "findings", "feature": "-", "task": "T011", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A002", "agent": "code-quality", "result": "findings", "feature": "-", "task": "T011", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A003", "agent": "security-leak", "result": "findings", "feature": "-", "task": "T011", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A004", "agent": "bug-hunter", "result": "findings", "feature": "-", "task": "T012", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A005", "agent": "code-quality", "result": "findings", "feature": "-", "task": "T012", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A006", "agent": "security-leak", "result": "findings", "feature": "-", "task": "T012", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A007", "agent": "bug-hunter", "result": "findings", "feature": "-", "task": "T013", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A008", "agent": "code-quality", "result": "findings", "feature": "-", "task": "T013", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A009", "agent": "security-leak", "result": "findings", "feature": "-", "task": "T013", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A010", "agent": "bug-hunter", "result": "findings", "feature": "-", "task": "T014", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A011", "agent": "code-quality", "result": "findings", "feature": "-", "task": "T014", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A012", "agent": "security-leak", "result": "findings", "feature": "-", "task": "T014", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A013", "agent": "bug-hunter", "result": "findings", "feature": "-", "task": "T015", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A014", "agent": "code-quality", "result": "findings", "feature": "-", "task": "T015", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A015", "agent": "security-leak", "result": "findings", "feature": "-", "task": "T015", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A016", "agent": "bug-hunter", "result": "findings", "feature": "-", "task": "T016", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A017", "agent": "code-quality", "result": "findings", "feature": "-", "task": "T016", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A018", "agent": "security-leak", "result": "findings", "feature": "-", "task": "T016", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A019", "agent": "bug-hunter", "result": "findings", "feature": "-", "task": "T017", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A020", "agent": "code-quality", "result": "findings", "feature": "-", "task": "T017", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A021", "agent": "security-leak", "result": "findings", "feature": "-", "task": "T017", "findings": 0, "note": "", "on": "2026-10-23"}
+{"id": "A022", "agent": "code-quality", "result": "clean", "feature": "-", "task": "-", "findings": 0, "note": "auto from verify-before-stop (review agent launched)", "on": "2026-10-23"}
+{"id": "A023", "agent": "security-leak-auditor", "result": "clean", "feature": "-", "task": "-", "findings": 0, "note": "auto from verify-before-stop (review agent launched)", "on": "2026-10-23"}
+{"id": "A024", "agent": "bug-hunter", "result": "clean", "feature": "-", "task": "-", "findings": 0, "note": "auto from verify-before-stop (review agent launched)", "on": "2026-10-23"}

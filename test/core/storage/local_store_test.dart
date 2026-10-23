@@ -7,10 +7,15 @@ import 'package:parley/core/storage/local_store.dart';
 void main() {
   late Directory root;
   late LocalStore store;
+  final excluded = <String>[];
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('parley_store_');
-    store = LocalStore(root: () async => root);
+    excluded.clear();
+    store = LocalStore(
+      root: () async => root,
+      excludeFromBackup: (d) async => excluded.add(d.path),
+    );
   });
   tearDown(() => root.delete(recursive: true));
 
@@ -68,6 +73,12 @@ void main() {
       expect(await store.list('u2', 'chat'), hasLength(1));
     },
   );
+
+  test('the history folder is kept off backups once, before the first save', () async {
+    await store.write('u1', 'chat', summary('a', 1), {});
+    await store.write('u1', 'chat', summary('b', 2), {});
+    expect(excluded, ['${root.path}/history']);
+  });
 
   test('ids that could leave the folder are refused', () async {
     expect(() => store.read('../u2', 'chat', 'a'), throwsArgumentError);

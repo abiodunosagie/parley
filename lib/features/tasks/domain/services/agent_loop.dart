@@ -4,14 +4,16 @@
 //   2. If the reply contains tool_use blocks, run each one with ToolExecutor.
 //   3. Send all the results back in one message.
 //   4. Repeat until Claude answers in plain text (at most [maxRounds] rounds).
-// If a turn fails or is cut short, the transcript is rolled back to before your message, so it
-// always ends on a clean assistant reply. A dangling tool_use or an empty turn would make every
-// later request fail. Plain Dart (no Flutter), covered by test/features/tasks/domain/agent_loop_test.dart.
+// The transcript only grows by complete steps: a tool round goes in with all its results, and a
+// failed or cut-short answer is never added, so there is never a dangling tool_use. Your message
+// stays even when the reply fails, exactly like the screen shows it.
+// Plain Dart (no Flutter), covered by test/features/tasks/domain/agent_loop_test.dart.
 
 import '../../../../core/errors/user_messages.dart';
 import '../../../../core/models/claude_model.dart';
 import '../../../../core/network/cancel_token.dart';
 import '../entities/agent_item.dart';
+import '../entities/agent_reply.dart';
 import '../repositories/agent_repository.dart';
 import 'tool_executor.dart';
 
@@ -58,8 +60,10 @@ class AgentLoop {
     required void Function(AgentItem item) onItem,
     required bool Function() isCurrent,
   }) async {
-    final rollbackTo = _transcript.length;
     _transcript.add({'role': 'user', 'content': text});
+    // The transcript only ever grows by whole steps (your message, a tool round with all its
+    // results, a final answer), and the screen shows exactly those steps. So when a run fails
+    // halfway, what Claude knows and what you see (and what history saves) stay the same.
     String? notice;
     Object? unexpected;
     var clean = false;
@@ -71,18 +75,13 @@ class AgentLoop {
           cancel: cancel,
         );
         if (!isCurrent()) return const AgentRunResult(notice: null);
-        for (final thought in reply.thoughts) {
-          onItem(ClaudeThought(thought));
-        }
-        for (final said in reply.texts) {
-          onItem(ClaudeSaid(said));
-        }
 
         if (reply.stopReason != 'tool_use') {
           // Only a non-empty answer with no pending tool call is safe to keep.
           clean = reply.content.isNotEmpty && reply.toolCalls.isEmpty;
           if (clean) {
             _transcript.add({'role': 'assistant', 'content': reply.content});
+            _show(reply, onItem);
           }
           notice =
               stopReasonNote(reply.stopReason) ??
@@ -90,14 +89,17 @@ class AgentLoop {
           break;
         }
 
-        _transcript.add({'role': 'assistant', 'content': reply.content});
+        _show(reply, onItem);
         final results = <Map<String, dynamic>>[];
         for (final call in reply.toolCalls) {
-          final input = call['input'];
-          final outcome = await executor.run(
-            call['name'] as String? ?? '',
-            input is Map ? Map<String, dynamic>.from(input) : const {},
-          );
+          // Every call gets a result, even after Stop, so the round is always complete.
+          final outcome = cancel.isCancelled
+              ? const ToolOutcome(
+                  content: 'Not run: the user pressed Stop.',
+                  summary: 'Skipped after Stop',
+                  isError: true,
+                )
+              : await _runTool(call);
           if (!isCurrent()) return const AgentRunResult(notice: null);
           onItem(ToolRan(outcome.summary, isError: outcome.isError));
           results.add({
@@ -107,8 +109,11 @@ class AgentLoop {
             if (outcome.isError) 'is_error': true,
           });
         }
-        // Every result goes back in ONE user message, which keeps parallel tool calls working.
-        _transcript.add({'role': 'user', 'content': results});
+        // Claude's turn and every result go in together, in ONE user message for the results,
+        // which keeps parallel tool calls working.
+        _transcript
+          ..add({'role': 'assistant', 'content': reply.content})
+          ..add({'role': 'user', 'content': results});
       }
       if (!clean && notice == null) {
         notice = cancel.isCancelled
@@ -119,9 +124,31 @@ class AgentLoop {
       notice = messageFor(e, cancelled: cancel.isCancelled);
       if (isUnexpected(e, cancelled: cancel.isCancelled)) unexpected = e;
     }
-    if (!clean && isCurrent()) {
-      _transcript.removeRange(rollbackTo, _transcript.length);
-    }
     return AgentRunResult(notice: notice, unexpectedError: unexpected);
+  }
+
+  void _show(AgentReply reply, void Function(AgentItem item) onItem) {
+    for (final thought in reply.thoughts) {
+      onItem(ClaudeThought(thought));
+    }
+    for (final said in reply.texts) {
+      onItem(ClaudeSaid(said));
+    }
+  }
+
+  Future<ToolOutcome> _runTool(Map<String, dynamic> call) async {
+    final input = call['input'];
+    try {
+      return await executor.run(
+        call['name'] as String? ?? '',
+        input is Map ? Map<String, dynamic>.from(input) : const {},
+      );
+    } catch (_) {
+      return const ToolOutcome(
+        content: 'The tool failed on the phone.',
+        summary: 'Tool failed',
+        isError: true,
+      );
+    }
   }
 }

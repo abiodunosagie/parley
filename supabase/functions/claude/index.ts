@@ -150,9 +150,12 @@ async function checkSearchBudget(userId: string) {
   }
 }
 
-// The network the request came from, hashed so no raw IP address is ever stored.
+// The network the request came from, hashed so no raw IP address is ever stored. Supabase's edge
+// sits behind Cloudflare, which sets CF-Connecting-IP itself and rejects requests that try to
+// send their own, so the header cannot be faked the way the first X-Forwarded-For entry can.
 async function ipHash(request: Request): Promise<string | null> {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const ip = request.headers.get("cf-connecting-ip")?.trim() ||
+    request.headers.get("x-forwarded-for")?.split(",").at(-2)?.trim();
   if (!ip) return null;
   const salted = new TextEncoder().encode(`${Deno.env.get("SUPABASE_URL")}|${ip}`);
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", salted));
