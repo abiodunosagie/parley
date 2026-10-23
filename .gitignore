@@ -52,3 +52,9 @@ config/parley.json
 .envrc
 SESSION_GUIDE.md
 supabase/.temp/
+
+# Local task tracker (open rows include security follow-ups)
+docs/task-tracker.tsv
+docs/task-tracker.meta.json
+docs/track-profile.json
+docs/.task-tracker.tsv.lock
