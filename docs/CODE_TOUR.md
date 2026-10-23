@@ -49,7 +49,7 @@ State is Riverpod everywhere. Each screen watches one controller, and the rule f
 
 Widgets keep only widget plumbing such as `TextEditingController` and `AnimationController`.
 
-Two small trade-offs, on purpose:
+Three small trade-offs, on purpose:
 
 - `main.dart` overrides `accessTokenProvider` and `accountCleanupsProvider`. That is how `core/`
   gets the session token and how deleting an account clears the tasks, without core or auth
