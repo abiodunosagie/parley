@@ -198,7 +198,13 @@ Rewrite, Receipts and Extract on top of its list.
 
 Creating an account asks for a first and last name (`auth/domain/validators/auth_validators.dart`),
 saved in the account's user metadata; Chat greets you with it, and the account sheet lets older
-accounts add or change it. `app/session_reset.dart` clears the previous account's screens when the
+accounts add or change it.
+
+The account sheet also takes the user's own Claude key (`auth/presentation/widgets/api_key_editor.dart`).
+`auth/data/repositories/api_key_repository_impl.dart` keeps it in the phone's secure storage under
+the account's id; `main.dart` hands it to `core/session/own_api_key_provider.dart`, and
+`ClaudeClient` adds it as `api_key` in each request body. `app/session_reset.dart` removes it when
+the account signs out, and the account clean-ups remove it when the account is deleted. `app/session_reset.dart` clears the previous account's screens when the
 account changes.
 
 ## 7. Tests
@@ -207,11 +213,12 @@ account changes.
 test/core/            network client, SSE parsing, keyboard, history store, history sheet, dictation
 test/features/...     mirrors lib/features: entities, mappers, validators, tools, the agent loop,
                       word diff, receipts, controllers (chat streaming, history, model lock, races,
-                      receipt scans), repositories, delete flow
-test/helpers/         shared fakes (accounts, tasks, saved history and dictation, all in memory)
+                      receipt scans), repositories, delete flow, own API key (save, mask, sign-out)
+test/helpers/         shared fakes (accounts, own keys, tasks, saved history and dictation, all in memory)
 test/app/             the gate, and the whole app: first run (splash, welcome, sign-in), signed in and out,
                       every tab and tool, light and dark, a small phone with large text
 test/architecture_test.dart   the layering rules above
 supabase/functions/claude/validate_test.ts   server-side request and replay validation
+supabase/functions/claude/own_key_test.ts    own-key shape and the errors a rejected key gives
 integration_test/     on a Simulator: README screenshots against the live backend, and the first run
 ```

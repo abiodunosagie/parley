@@ -43,4 +43,37 @@ void main() {
   test('names are saved trimmed with single spaces', () {
     expect(cleanName('  Mary   Jane '), 'Mary Jane');
   });
+
+  group('own API key', () {
+    const key = 'sk-ant-api03-abcdefghijklmnopqrstuvwxyz_-0123';
+
+    test(
+      'accepts an Anthropic key, spaces and line breaks from a paste included',
+      () {
+        expect(validateApiKey(key), isNull);
+        expect(
+          validateApiKey(' sk-ant-api03-abcdefghij\nklmnopqrstuvwxyz '),
+          isNull,
+        );
+        expect(cleanApiKey(' sk-ant-api03-abc\ndef '), 'sk-ant-api03-abcdef');
+      },
+    );
+
+    test('refuses an empty box, other providers and junk', () {
+      expect(validateApiKey(''), 'Paste your Claude API key.');
+      for (final bad in [
+        'sk-proj-abcdefghijklmnopqrstuvwxyz',
+        'sk-ant-short',
+        'sk-ant-${'a' * 300}',
+        'sk-ant-abc!defghijklmnopqrstuvwxyz',
+      ]) {
+        expect(validateApiKey(bad), isNotNull, reason: bad);
+      }
+    });
+
+    test('masks all but the last four characters', () {
+      expect(maskApiKey(key), 'sk-ant-...0123');
+      expect(maskApiKey('short'), 'sk-ant-...');
+    });
+  });
 }

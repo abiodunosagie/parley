@@ -1,11 +1,14 @@
 // Parley's one backend endpoint: POST /functions/v1/claude.
 // Order of checks: body size, signed-in Supabase user, valid body, rate limits, the search and
 // document budgets, then the Claude call. Whatever the call spends is logged at the end, even
-// when the app disconnects. The Anthropic key exists only as a Supabase secret; the app never
-// sees it.
+// when the app disconnects. The project's Anthropic key exists only as a Supabase secret; the app
+// never sees it. A user who adds their own key under Account sends it with each request: it is used
+// for that request only, never stored and never logged, and the shared daily budgets do not
+// apply to it because the user pays for it.
 import { createClient } from "jsr:@supabase/supabase-js@2.118.0";
-import { agentTurn, countInputTokens, Meter, publicError, streamReply, structured } from "./claude.ts";
-import { LIMITS, MAX_TOKENS, STREAMING_MODES } from "./config.ts";
+import Anthropic from "npm:@anthropic-ai/sdk@1.1.0";
+import { agentTurn, clientFor, countInputTokens, Meter, publicError, streamReply, structured } from "./claude.ts";
+import { LIMITS, MAX_TOKENS, OWN_KEY_PATTERN, STREAMING_MODES } from "./config.ts";
 import { JOB_POST_SCHEMA, RECEIPT_SCHEMA } from "./schemas.ts";
 import { type ClaudeRequest, validateRequest } from "./validate.ts";
 
@@ -43,46 +46,74 @@ Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
 
+  let ownKey: string | null = null;
   try {
-    if (!Deno.env.get("ANTHROPIC_API_KEY")) throw new HttpError(503, "The server is not set up yet.");
     const size = Number(request.headers.get("Content-Length") ?? "0");
     if (size > LIMITS.maxBodyBytes) throw new HttpError(413, "That request is too large.");
 
     const userId = await signedInUser(request);
-    const req = await readBody(request);
-    const logId = await claimSlot(userId, await ipHash(request), req);
-    if (req.options.webSearch) await checkSearchBudget(userId);
+    const body = await readJson(request);
+    ownKey = readOwnKey(body);
+    if (!ownKey && !Deno.env.get("ANTHROPIC_API_KEY")) throw new HttpError(503, "The server is not set up yet.");
+    const req = validated(body);
+    const logId = await claimSlot(userId, await ipHash(request), req, ownKey !== null);
+    if (req.options.webSearch && !ownKey) await checkSearchBudget(userId);
+    const anthropic = clientFor(ownKey);
 
     // Stop the Claude call (and its billing) the moment the app goes away.
     const abort = new AbortController();
     request.signal.addEventListener("abort", () => abort.abort());
 
-    if (req.mode === "document") {
-      const tokens = await countInputTokens(req, abort.signal);
+    // The document cap protects the shared budget; on the user's own key the API's own limits apply.
+    if (req.mode === "document" && !ownKey) {
+      const tokens = await countInputTokens(anthropic, req, abort.signal);
       if (tokens > LIMITS.maxDocumentInputTokens) {
         throw new HttpError(413, "That document is too long for Parley. Try a shorter PDF, about 25 pages.");
       }
     }
 
     const meter = new Meter();
-    if ((STREAMING_MODES as readonly string[]).includes(req.mode)) return streamResponse(req, abort, logId, meter);
+    if ((STREAMING_MODES as readonly string[]).includes(req.mode)) return streamResponse(anthropic, req, abort, logId, meter, ownKey);
     try {
       const result = req.mode === "extract"
-        ? await structured(req, JOB_POST_SCHEMA, abort.signal, meter)
+        ? await structured(anthropic, req, JOB_POST_SCHEMA, abort.signal, meter)
         : req.mode === "receipt"
-        ? await structured(req, RECEIPT_SCHEMA, abort.signal, meter)
-        : await agentTurn(req, abort.signal, meter);
+        ? await structured(anthropic, req, RECEIPT_SCHEMA, abort.signal, meter)
+        : await agentTurn(anthropic, req, abort.signal, meter);
       return json(result);
     } finally {
       await logUsage(logId, meter, req);
     }
   } catch (error) {
     if (error instanceof HttpError) return json({ error: error.message }, error.status);
-    console.error("claude request failed", error);
-    const { message, status } = publicError(error);
+    logFailure("claude request failed", error, ownKey);
+    const { message, status } = publicError(error, ownKey !== null);
     return json({ error: message }, status);
   }
 });
+
+// The user's own key from the body, or null when the request uses the project's key. A key that is
+// present but not shaped like an Anthropic key is refused rather than ignored, so a typo never
+// quietly spends the shared budget. validateRequest never copies api_key into the request it
+// builds, so the key cannot reach Claude or the logs by that path.
+function readOwnKey(body: unknown): string | null {
+  const value = (body as { api_key?: unknown } | null)?.api_key;
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || !OWN_KEY_PATTERN.test(value)) {
+    throw new HttpError(400, "That API key does not look like a Claude key. Check it under Account.");
+  }
+  return value;
+}
+
+// Logs a failure with no trace of the user's key: only the error's kind, status and message, with
+// the key blanked out in case an upstream message ever echoes it.
+function logFailure(label: string, error: unknown, ownKey: string | null) {
+  const status = error instanceof Anthropic.APIError ? ` ${error.status}` : "";
+  const name = error instanceof Error ? error.name : "Error";
+  let message = error instanceof Error ? error.message : String(error);
+  if (ownKey) message = message.replaceAll(ownKey, "[key]");
+  console.error(`${label}: ${name}${status} ${message}${ownKey ? " (own key)" : ""}`);
+}
 
 async function signedInUser(request: Request): Promise<string> {
   const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
@@ -92,14 +123,16 @@ async function signedInUser(request: Request): Promise<string> {
   return data.user.id;
 }
 
-async function readBody(request: Request): Promise<ClaudeRequest> {
-  let body: unknown;
+async function readJson(request: Request): Promise<unknown> {
   try {
-    body = JSON.parse(await readLimited(request, LIMITS.maxBodyBytes));
+    return JSON.parse(await readLimited(request, LIMITS.maxBodyBytes));
   } catch (error) {
     if (error instanceof HttpError) throw error;
     throw new HttpError(400, "Body must be JSON.");
   }
+}
+
+function validated(body: unknown): ClaudeRequest {
   const checked = validateRequest(body);
   if (!checked.ok) throw new HttpError(400, checked.error);
   return checked.value;
@@ -138,6 +171,7 @@ async function checkSearchBudget(userId: string) {
     .from("claude_requests")
     .select("web_searches")
     .eq("user_id", userId)
+    .eq("own_key", false)
     .gt("web_searches", 0)
     .gt("created_at", since);
   if (error) {
@@ -164,18 +198,21 @@ async function ipHash(request: Request): Promise<string> {
 
 // Checks every limit and records the request in one locked database step, so a burst of
 // parallel requests cannot slip past a count. Fails closed: no slot, no Claude call.
-async function claimSlot(userId: string, ip: string, req: ClaudeRequest): Promise<number> {
+// On the user's own key only the per-minute limit and a generous daily count of own-key requests
+// apply, and the row is marked so it never counts against the shared daily budgets.
+async function claimSlot(userId: string, ip: string, req: ClaudeRequest, ownKey: boolean): Promise<number> {
   const { data, error } = await admin.rpc("claim_claude_request", {
     p_user: userId,
     p_ip_hash: ip,
     p_mode: req.mode,
     p_model: req.model,
     p_user_per_minute: LIMITS.perUserPerMinute,
-    p_user_per_day: LIMITS.perUserPerDay,
+    p_user_per_day: ownKey ? LIMITS.ownKeyPerUserPerDay : LIMITS.perUserPerDay,
     p_ip_per_day: LIMITS.perIpPerDay,
     p_project_per_day: LIMITS.projectPerDay,
     p_user_tokens_per_day: LIMITS.userTokensPerDay,
     p_project_tokens_per_day: LIMITS.projectTokensPerDay,
+    p_own_key: ownKey,
   });
   if (error) {
     console.error("rate limit check failed", error.message);
@@ -186,17 +223,24 @@ async function claimSlot(userId: string, ip: string, req: ClaudeRequest): Promis
   return row.request_id;
 }
 
-function streamResponse(req: ClaudeRequest, abort: AbortController, logId: number, meter: Meter): Response {
+function streamResponse(
+  anthropic: Anthropic,
+  req: ClaudeRequest,
+  abort: AbortController,
+  logId: number,
+  meter: Meter,
+  ownKey: string | null,
+): Response {
   const encoder = new TextEncoder();
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       try {
-        for await (const event of streamReply(req, abort.signal, meter)) send(event);
+        for await (const event of streamReply(anthropic, req, abort.signal, meter)) send(event);
       } catch (error) {
         if (abort.signal.aborted) return; // The app left; the stream is already closed.
-        console.error("claude stream failed", error);
-        send({ type: "error", message: publicError(error).message });
+        logFailure("claude stream failed", error, ownKey);
+        send({ type: "error", message: publicError(error, ownKey !== null).message });
       } finally {
         await logUsage(logId, meter, req);
       }

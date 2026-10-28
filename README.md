@@ -52,7 +52,7 @@ Flutter app                          Supabase                                Ant
     data/        repositories          2. signed-in user                       Claude Opus 5.5
     presentation/ Riverpod + screens   3. every block rebuilt from an allowlist
   core/  network, storage, speech      4. atomic per-user, per-network and
-  holds NO API key                        project limits (one locked SQL call)
+  holds no Parley key                     project limits (one locked SQL call)
                                        5. call Claude, stream back, log spend
 ```
 
@@ -64,6 +64,10 @@ Flutter app                          Supabase                                Ant
   definitions, and Claude's earlier turns rebuilt field by field before they are replayed.
 - **Spend is capped and counted honestly.** Requests, tokens and web searches are limited per
   user per day, and a request the app abandons mid-stream is still logged.
+- **Bring your own Claude key.** Account > Claude API key takes a user's own Anthropic key. It is
+  kept only in the phone's Keychain or Keystore, for that account, and removed when the account
+  signs out. Each request carries it in the body; the server uses it for that call, never saves or
+  logs it, and the shared daily budgets stop applying because the user pays.
 - **History never leaves the phone.** Saved per account in the app's own storage and kept out of
   iCloud and Android backups.
 
@@ -89,8 +93,8 @@ The [runbook](RUNBOOK.md) covers backend setup, logs and troubleshooting in deta
 ## Tests
 
 ```bash
-flutter analyze && flutter test                              # 100 tests: entities, controllers, storage, the whole app
-cd supabase/functions/claude && deno check index.ts && deno test   # request and replay validation
+flutter analyze && flutter test                              # 134 tests: entities, controllers, storage, the whole app
+cd supabase/functions/claude && deno check index.ts && deno test   # request, replay and own-key validation
 ```
 
 ## Brand

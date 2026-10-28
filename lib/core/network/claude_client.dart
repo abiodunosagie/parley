@@ -2,7 +2,10 @@
 // THE MOST IMPORTANT FILE FOR TALKING TO CLAUDE. Every Claude request goes through here.
 // It POSTs {mode, model, messages, options} to the `claude` Supabase edge function with the user's
 // session token. Chat, Look, Read and Rewrite use `stream()` (text arrives bit by bit); Extract,
-// Receipts and Tasks use `request()` (one JSON answer). The Claude API key is NOT here: it lives on the server.
+// Receipts and Tasks use `request()` (one JSON answer). Parley's own Claude key is NOT here: it lives
+// on the server. If the user added their own key under Account, it rides along as `api_key` in the
+// request body (bodies, unlike headers, stay out of the platform's request logs), read from the
+// phone's secure storage each time; the server uses it for that request and never saves it.
 // Repositories in each feature's data/ folder call this; widgets never do.
 // Read next: supabase/functions/claude/index.ts (the other end of this call).
 
@@ -15,6 +18,7 @@ import '../config/env.dart';
 import '../errors/app_exception.dart';
 import '../models/claude_model.dart';
 import '../session/access_token_provider.dart';
+import '../session/own_api_key_provider.dart';
 import 'cancel_token.dart';
 import 'sse.dart';
 
@@ -24,10 +28,16 @@ enum ClaudeMode { chat, vision, document, rewrite, extract, receipt, agent }
 /// The app's only door to Claude: the `claude` Supabase edge function. Every call carries the
 /// signed-in user's session, which the server checks before it spends any credit.
 class ClaudeClient {
-  ClaudeClient(this._accessToken, {required this.endpoint, http.Client? client})
-    : _client = client ?? http.Client();
+  ClaudeClient(
+    this._accessToken, {
+    required this.endpoint,
+    OwnApiKey? ownKey,
+    http.Client? client,
+  }) : _ownKey = ownKey ?? (() async => null),
+       _client = client ?? http.Client();
 
   final AccessToken _accessToken;
+  final OwnApiKey _ownKey;
   final Uri endpoint;
   final http.Client _client;
 
@@ -91,6 +101,7 @@ class ClaudeClient {
       'model': model.id,
       'messages': messages,
       'options': ?options,
+      'api_key': ?await _ownKey(),
     });
     var response = await _post(body, await _token(), cancel);
     if (response.statusCode == 401) {
@@ -149,5 +160,6 @@ final claudeClientProvider = Provider<ClaudeClient>(
   (ref) => ClaudeClient(
     ref.watch(accessTokenProvider),
     endpoint: Uri.parse('${Env.supabaseUrl}/functions/v1/claude'),
+    ownKey: ref.watch(ownApiKeyProvider),
   ),
 );

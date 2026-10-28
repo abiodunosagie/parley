@@ -8,6 +8,7 @@ import 'package:parley/core/speech/speech_service.dart';
 import 'package:parley/core/storage/local_store.dart';
 import 'package:parley/features/onboarding/domain/repositories/onboarding_repository.dart';
 import 'package:parley/features/auth/domain/entities/app_user.dart';
+import 'package:parley/features/auth/domain/repositories/api_key_repository.dart';
 import 'package:parley/features/auth/domain/repositories/auth_repository.dart';
 import 'package:parley/features/tasks/domain/entities/task.dart';
 import 'package:parley/features/tasks/domain/repositories/task_repository.dart';
@@ -212,4 +213,26 @@ class MemoryOnboarding implements OnboardingRepository {
     saves++;
     seen = true;
   }
+}
+
+/// Own Claude keys in memory, one per account, like the phone's secure storage.
+class FakeApiKeys implements ApiKeyRepository {
+  final keys = <String, String>{};
+  Object? saveError;
+  Object? readError;
+
+  @override
+  Future<String?> read(String userId) async {
+    if (readError != null) throw readError!;
+    return keys[userId];
+  }
+
+  @override
+  Future<void> save(String userId, String key) async {
+    if (saveError != null) throw saveError!;
+    keys[userId] = key;
+  }
+
+  @override
+  Future<void> remove(String userId) async => keys.remove(userId);
 }

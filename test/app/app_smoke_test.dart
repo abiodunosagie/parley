@@ -6,6 +6,7 @@ import 'package:parley/app/app.dart';
 import 'package:parley/core/session/access_token_provider.dart';
 import 'package:parley/core/speech/speech_service.dart';
 import 'package:parley/core/storage/local_store.dart';
+import 'package:parley/features/auth/data/repositories/api_key_repository_impl.dart';
 import 'package:parley/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:parley/features/auth/domain/entities/app_user.dart';
 import 'package:parley/app/launch/launch_screen.dart';
@@ -27,6 +28,7 @@ import '../helpers/launch.dart';
 
 Future<FakeAuth> _pumpApp(
   WidgetTester tester, {
+  FakeApiKeys? keys,
   bool signedIn = false,
   Brightness brightness = Brightness.light,
   MemoryOnboarding? onboarding,
@@ -51,6 +53,7 @@ Future<FakeAuth> _pumpApp(
         accessTokenProvider.overrideWithValue(auth.accessToken),
         taskRepositoryProvider.overrideWithValue(MemoryTasks()),
         localStoreProvider.overrideWithValue(MemoryStore()),
+        apiKeyRepositoryProvider.overrideWithValue(keys ?? FakeApiKeys()),
         speechServiceProvider.overrideWithValue(FakeSpeech()),
         onboardingRepositoryProvider.overrideWithValue(
           onboarding ?? MemoryOnboarding(seen: true),
@@ -168,17 +171,21 @@ void main() {
   testWidgets('signing out after creating an account shows Welcome back', (
     tester,
   ) async {
-    final auth = await _pumpApp(tester);
+    final keys = FakeApiKeys();
+    final auth = await _pumpApp(tester, keys: keys);
     await tester.tap(find.text('Create an account'));
     await tester.pumpAndSettle();
     expect(find.text('First name'), findsOneWidget);
     auth.emit(const AppUser(id: 'u1', email: 'me@example.com'));
     await tester.pumpAndSettle();
     expect(find.byType(ChatScreen), findsOneWidget);
+    keys.keys['u1'] = 'sk-ant-api03-abcdefghijklmnopqrstuvwxyz';
     await auth.signOut();
     await tester.pumpAndSettle();
     expect(find.text('First name'), findsNothing);
     expect(find.textContaining('Welcome'), findsOneWidget);
+    // The account's own Claude key leaves the phone with it.
+    expect(keys.keys, isEmpty);
   });
 
   testWidgets('creating an account asks for first and last name', (

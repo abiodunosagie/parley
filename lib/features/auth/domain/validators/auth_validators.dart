@@ -39,3 +39,24 @@ String? validateName(String value, {required NamePart part}) {
 
 /// A name as it is saved: no spaces at the ends, single spaces inside.
 String cleanName(String value) => value.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+// The shape of an Anthropic key. Must match OWN_KEY_PATTERN in the edge function, which refuses
+// anything else.
+final _apiKey = RegExp(r'^sk-ant-[A-Za-z0-9_-]{20,250}$');
+
+/// A pasted key as it is saved: spaces and line breaks from the copy are dropped.
+String cleanApiKey(String value) => value.replaceAll(RegExp(r'\s+'), '');
+
+String? validateApiKey(String value) {
+  final key = cleanApiKey(value);
+  if (key.isEmpty) return 'Paste your Claude API key.';
+  if (!_apiKey.hasMatch(key)) {
+    return 'That does not look like a Claude key. It starts with sk-ant-.';
+  }
+  return null;
+}
+
+/// The end of a saved key, enough to recognise it without showing it: "sk-ant-...x7Qa".
+String maskApiKey(String key) => key.length < 20
+    ? 'sk-ant-...'
+    : 'sk-ant-...${key.substring(key.length - 4)}';

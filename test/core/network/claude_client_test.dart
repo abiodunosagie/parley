@@ -10,12 +10,17 @@ import 'package:parley/core/network/sse.dart';
 
 final _endpoint = Uri.parse('https://example.supabase.co/functions/v1/claude');
 
-ClaudeClient _api(MockClient client, {List<bool>? tokenCalls}) => ClaudeClient(
+ClaudeClient _api(
+  MockClient client, {
+  List<bool>? tokenCalls,
+  String? ownKey,
+}) => ClaudeClient(
   ({bool fresh = false}) async {
     tokenCalls?.add(fresh);
     return fresh ? 'new-token' : 'old-token';
   },
   endpoint: _endpoint,
+  ownKey: () async => ownKey,
   client: client,
 );
 
@@ -88,6 +93,77 @@ void main() {
           {'role': 'user', 'content': 'Hi'},
         ],
       });
+    });
+
+    test('sends the user\'s own key in the body, never a header', () async {
+      final seen = <String?>[];
+      late Map<String, String> headers;
+      final api = _api(
+        MockClient((request) async {
+          headers = request.headers;
+          seen.add((jsonDecode(request.body) as Map)['api_key'] as String?);
+          return http.Response('{}', 200);
+        }),
+        ownKey: 'sk-ant-api03-abcdefghijklmnopqrstuvwxyz',
+      );
+      await api.request(
+        mode: ClaudeMode.extract,
+        model: ClaudeModel.haiku,
+        messages: const [],
+      );
+      expect(seen, ['sk-ant-api03-abcdefghijklmnopqrstuvwxyz']);
+      expect(headers.values.any((v) => v.contains('sk-ant-')), isFalse);
+    });
+
+    test('sends no key without a saved key', () async {
+      late Map<String, dynamic> body;
+      final api = _api(
+        MockClient((request) async {
+          body = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response('{}', 200);
+        }),
+      );
+      await api.request(
+        mode: ClaudeMode.extract,
+        model: ClaudeModel.haiku,
+        messages: const [],
+      );
+      expect(body.containsKey('api_key'), isFalse);
+    });
+
+    test('a rejected own key is shown once, with no session retry', () async {
+      final tokens = <bool>[];
+      var calls = 0;
+      final api = _api(
+        MockClient((_) async {
+          calls++;
+          return http.Response(
+            jsonEncode({
+              'error':
+                  'Claude did not accept your API key. Check it under Account.',
+            }),
+            403,
+          );
+        }),
+        tokenCalls: tokens,
+        ownKey: 'sk-ant-api03-abcdefghijklmnopqrstuvwxyz',
+      );
+      await expectLater(
+        api.request(
+          mode: ClaudeMode.extract,
+          model: ClaudeModel.haiku,
+          messages: const [],
+        ),
+        throwsA(
+          isA<AppException>().having(
+            (e) => e.message,
+            'message',
+            contains('API key'),
+          ),
+        ),
+      );
+      expect(calls, 1);
+      expect(tokens, [false]);
     });
 
     test('streams text deltas', () async {

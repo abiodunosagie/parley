@@ -6,7 +6,15 @@ import { SYSTEM_PROMPTS, WEB_SEARCH_PROMPT } from "./prompts.ts";
 import { AGENT_TOOLS } from "./schemas.ts";
 import { ALLOWED_BLOCKS, type ClaudeRequest } from "./validate.ts";
 
-const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
+// The client on the project's key is made once, on first use. A request that carries the user's
+// own key gets a client of its own, used for that one request and then dropped; that key is never
+// stored or logged.
+let projectClient: Anthropic | null = null;
+
+export function clientFor(ownKey: string | null): Anthropic {
+  if (ownKey) return new Anthropic({ apiKey: ownKey });
+  return projectClient ??= new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
+}
 
 type ContentBlock = Anthropic.Beta.BetaContentBlock;
 /**
@@ -88,7 +96,12 @@ function sourceOf(citation: Anthropic.Beta.BetaTextCitation): Source | null {
   }
 }
 
-export async function* streamReply(req: ClaudeRequest, signal: AbortSignal, meter: Meter): AsyncGenerator<StreamEvent> {
+export async function* streamReply(
+  anthropic: Anthropic,
+  req: ClaudeRequest,
+  signal: AbortSignal,
+  meter: Meter,
+): AsyncGenerator<StreamEvent> {
   let messages = req.messages;
   const content: ContentBlock[] = [];
   let wroteText = false;
@@ -176,6 +189,7 @@ export type StructuredResult = { fields: Record<string, unknown> | null; stop_re
 
 /** One JSON answer in exactly [schema]'s shape. Used by extraction and receipts. */
 export async function structured(
+  anthropic: Anthropic,
   req: ClaudeRequest,
   schema: Record<string, unknown>,
   signal: AbortSignal,
@@ -205,7 +219,12 @@ export type AgentResult = {
   stop_reason: string | null;
 };
 
-export async function agentTurn(req: ClaudeRequest, signal: AbortSignal, meter: Meter): Promise<AgentResult> {
+export async function agentTurn(
+  anthropic: Anthropic,
+  req: ClaudeRequest,
+  signal: AbortSignal,
+  meter: Meter,
+): Promise<AgentResult> {
   const response = await anthropic.beta.messages.create(
     { ...baseParams(req), tools: AGENT_TOOLS, output_config: { effort: EFFORT[req.mode] } },
     { signal },
@@ -215,14 +234,29 @@ export async function agentTurn(req: ClaudeRequest, signal: AbortSignal, meter: 
 }
 
 /** Input tokens [req] would cost, from the free token-counting endpoint. */
-export async function countInputTokens(req: ClaudeRequest, signal: AbortSignal): Promise<number> {
+export async function countInputTokens(
+  anthropic: Anthropic,
+  req: ClaudeRequest,
+  signal: AbortSignal,
+): Promise<number> {
   const { model, system, messages } = baseParams(req);
   const counted = await anthropic.beta.messages.countTokens({ model, system, messages }, { signal });
   return counted.input_tokens;
 }
 
-// The app shows these words as they are, so they never carry internal details.
-export function publicError(error: unknown): { message: string; status: number } {
+// The app shows these words as they are, so they never carry internal details. With the user's
+// own key, a rejected key or an empty balance is theirs to fix, so it says so. 403 rather than 401:
+// the app answers a 401 by refreshing the session and sending again, which would only call Claude
+// twice with the same bad key.
+export function publicError(error: unknown, ownKey = false): { message: string; status: number } {
+  if (ownKey && (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError)) {
+    return { message: "Claude did not accept your API key. Check it under Account.", status: 403 };
+  }
+  // Matches the wording of Anthropic's low-balance error (pinned in own_key_test.ts). If the wording
+  // changes, the user gets the general message below instead.
+  if (ownKey && error instanceof Anthropic.BadRequestError && /credit balance/i.test(error.message)) {
+    return { message: "Your Claude account is out of credit. Top it up, or remove your key under Account.", status: 402 };
+  }
   if (error instanceof Anthropic.RateLimitError) return { message: "Claude is busy right now. Try again in a moment.", status: 503 };
   if (error instanceof Anthropic.BadRequestError) return { message: "Claude could not take that request.", status: 400 };
   if (error instanceof Anthropic.AuthenticationError) return { message: "The server is not set up yet.", status: 503 };

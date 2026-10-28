@@ -9,19 +9,25 @@ Flutter app (lib/)                     Supabase project                         
   Chat, Look, Read, Tasks,    --->  Edge function "claude"            --->   claude-opus-5-5
   Rewrite, Receipts, Extract
   email + password accounts        checks the session, the body,            claude-sonnet-5-5
-  holds NO Claude key              the rate limits, holds the key           claude-haiku-5-5
+  holds no Parley key              the rate limits, holds the key           claude-haiku-5-5
                                    Edge function "delete-account"
 ```
 
 - The app only knows the Supabase URL and the publishable key (`config/parley.json`). Both are
   public by design.
 - The Claude key is a Supabase secret named `ANTHROPIC_API_KEY`. It never ships in the app.
-- Every call is logged in `public.claude_requests`. One locked database function
-  (`claim_claude_request`) checks the limits and records the call in a single step: 20 requests a
-  minute, 200 a day and 150k tokens a day per user, 400 a day per network, and 2000 requests or
-  1M tokens a day for the whole project (`supabase/functions/claude/config.ts`). Web searches are
-  logged too and capped at 30 per user per day; a PDF question is token-counted first and refused
-  above 60k input tokens.
+- Own keys: Account > Claude API key lets a user add their own Anthropic key. The app keeps it in
+  the Keychain (iOS, this device only, no iCloud sync) or Keystore-backed storage (Android), per
+  account, and deletes it whenever that account signs out or is deleted (`app/session_reset.dart`,
+  account clean-ups in `main.dart`). It is sent as `api_key` in the JSON body, never a header,
+  because platform request logs record headers. The function checks its shape, uses it for that
+  one request, and never stores or logs it (`logFailure` in index.ts blanks it). Those rows are
+  marked `own_key`: the per-minute limit and a separate daily count (`ownKeyPerUserPerDay`) apply,
+  and they never count toward the shared daily, network, search or project budgets. A rejected own
+  key comes back as 403 (not 401, so the app does not retry), an empty balance as 402.
+- Deploy order for backend changes like this one: `supabase db push` first, then
+  `supabase functions deploy claude`, then ship the app. The migration keeps the old function
+  working (`p_own_key` defaults to false); the new function needs the migration.
 - Accounts are Supabase email and password. Email confirmation is off, because Supabase's built-in
   mailer only sends a few emails an hour; add your own SMTP (for example Resend) before turning it on.
 - Settings > Delete account calls `delete-account`, which deletes the user and their usage rows.

@@ -75,6 +75,9 @@ export const LIMITS = {
   maxDocumentInputTokens: 60_000,
   // Searches are billed apart from tokens: about $0.30 a day per user at most.
   webSearchesPerUserPerDay: 30,
+  // Requests on the user's own key cost Parley nothing, but each one is still a row and a function
+  // run, so a script with a fake key is held to a generous daily count of its own.
+  ownKeyPerUserPerDay: 2000,
   // Opaque data Claude hands back for replay (encrypted search results, thinking signatures,
   // cited quotes). Counted apart from your own text because it is large and the API checks it;
   // a few search turns carry a few hundred KB each.
@@ -85,5 +88,10 @@ export const LIMITS = {
   // Checked from Content-Length before the body is parsed.
   maxBodyBytes: 16_000_000,
 };
+
+// A user's own Anthropic key arrives as `api_key` in the JSON body, one request at a time. It is in
+// the body, not a header, because the platform's request logs record headers and never bodies.
+// Checked against the shape of a real key before it is used, so nothing else can ride in on it.
+export const OWN_KEY_PATTERN = /^sk-ant-[A-Za-z0-9_-]{20,250}$/;
 
 export const SERVER_FALLBACK_BETA = "server-side-fallback-2026-07-01";

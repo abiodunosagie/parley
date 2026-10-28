@@ -1,5 +1,6 @@
 // FILE: features/auth/presentation/widgets/account_sheet.dart
-// Who is signed in (name and email, with a way to add or change the name), Sign out, and Delete
+// Who is signed in (name and email, with a way to add or change the name), the user's own Claude
+// key (add, replace or remove; see api_key_editor.dart), Sign out, and Delete
 // account (Apple requires in-app account deletion for any app with sign-up). Each step of the
 // sheet is a state of AccountSheetController.
 
@@ -10,6 +11,7 @@ import '../../../../core/theme/parley_colors.dart';
 import '../../domain/entities/app_user.dart';
 import '../providers/account_sheet_controller.dart';
 import '../providers/current_user_provider.dart';
+import 'api_key_editor.dart';
 import 'name_editor.dart';
 
 class AccountSheet extends ConsumerWidget {
@@ -26,6 +28,7 @@ class AccountSheet extends ConsumerWidget {
     final state = ref.watch(accountSheetControllerProvider);
     final controller = ref.read(accountSheetControllerProvider.notifier);
     final user = ref.watch(currentUserProvider).value;
+    final keyHint = ref.watch(savedApiKeyHintProvider);
     final text = Theme.of(context).textTheme;
 
     // While deleting, a tap outside the sheet does nothing; the delete always finishes first.
@@ -56,6 +59,7 @@ class AccountSheet extends ConsumerWidget {
                   context,
                   controller,
                   hasName: user?.hasName ?? false,
+                  keyHint: keyHint,
                 ),
                 EditingName(:final saving, :final error) => [
                   NameEditor(
@@ -65,6 +69,14 @@ class AccountSheet extends ConsumerWidget {
                     error: error,
                     onSave: controller.saveName,
                     onCancel: controller.cancelEditName,
+                  ),
+                ],
+                EditingApiKey(:final saving, :final error) => [
+                  ApiKeyEditor(
+                    saving: saving,
+                    error: error,
+                    onSave: controller.saveApiKey,
+                    onCancel: controller.cancelEditApiKey,
                   ),
                 ],
                 ConfirmingDelete(:final error) => _confirm(
@@ -90,12 +102,15 @@ class AccountSheet extends ConsumerWidget {
     BuildContext context,
     AccountSheetController controller, {
     required bool hasName,
+    required AsyncValue<String?> keyHint,
   }) => [
     OutlinedButton(
       onPressed: controller.editName,
       child: Text(hasName ? 'Change name' : 'Add your name'),
     ),
-    const SizedBox(height: 10),
+    const SizedBox(height: 20),
+    ..._apiKey(context, controller, keyHint),
+    const SizedBox(height: 20),
     OutlinedButton(
       onPressed: () {
         Navigator.pop(context);
@@ -113,6 +128,46 @@ class AccountSheet extends ConsumerWidget {
       child: const Text('Delete account'),
     ),
   ];
+
+  /// Which key pays for requests, and the buttons to change it.
+  List<Widget> _apiKey(
+    BuildContext context,
+    AccountSheetController controller,
+    AsyncValue<String?> saved,
+  ) {
+    final text = Theme.of(context).textTheme;
+    // Until secure storage answers, say nothing rather than claim there is no key.
+    if (saved.isLoading) {
+      return [Text('CLAUDE API KEY', style: text.labelSmall)];
+    }
+    // A key that cannot be read is offered for replacing or removing, like a saved one.
+    final keyHint = saved.hasError ? 'unreadable' : saved.value;
+    return [
+      Text('CLAUDE API KEY', style: text.labelSmall),
+      const SizedBox(height: 4),
+      Text(
+        saved.hasError
+            ? 'Your saved key could not be read. Replace it or remove it.'
+            : keyHint == null
+            ? "Parley's shared key, with daily limits."
+            : 'Your own key, $keyHint. Kept only on this phone.',
+        style: text.bodyMedium,
+      ),
+      const SizedBox(height: 10),
+      OutlinedButton(
+        onPressed: controller.editApiKey,
+        child: Text(keyHint == null ? 'Use your own key' : 'Replace key'),
+      ),
+      if (keyHint != null) ...[
+        const SizedBox(height: 10),
+        TextButton(
+          onPressed: controller.removeApiKey,
+          style: TextButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+          child: const Text('Remove my key'),
+        ),
+      ],
+    ];
+  }
 
   List<Widget> _confirm(
     BuildContext context,
