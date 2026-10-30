@@ -90,6 +90,10 @@ flutter run --dart-define-from-file=config/parley.json
 
 The [runbook](RUNBOOK.md) covers backend setup, logs and troubleshooting in detail.
 
+**Or run it on Node.js.** [parley-api](https://github.com/abiodunosagie/parley-api) is the same
+backend as a NestJS service with the same contract, checks and limits. Set `PARLEY_API_URL` in
+`config/parley.json` to its address and the app talks to it instead of the edge function.
+
 ## Tests
 
 ```bash

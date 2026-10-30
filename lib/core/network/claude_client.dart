@@ -159,7 +159,7 @@ class ClaudeClient {
 final claudeClientProvider = Provider<ClaudeClient>(
   (ref) => ClaudeClient(
     ref.watch(accessTokenProvider),
-    endpoint: Uri.parse('${Env.supabaseUrl}/functions/v1/claude'),
+    endpoint: Env.claudeEndpoint,
     ownKey: ref.watch(ownApiKeyProvider),
   ),
 );
